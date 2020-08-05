@@ -5,6 +5,8 @@ import numpy
 import shutil
 from pathlib import Path as plpath
 from math import ceil
+from tkinter import filedialog
+from tkinter import *
 from settings import *
 from gatelib import makeChoice
 
@@ -81,9 +83,10 @@ classicNESArray = ["Classic NES Series", "Famicom Mini", "Hudson Best Collection
 def main():
 	global systemChoice
 	global systemName
+	global deviceProfile
+	global outputFolder
 	global systemFolder
 	global xmdb
-	global mergeDict
 
 	systemChoices = makeChoice("Choose romset(s):", systemDirs+["All"], True)
 	if systemChoices is None:
@@ -94,18 +97,28 @@ def main():
 	for sc in systemChoices:
 		systemChoice = systemDirs[sc-1]
 		systemName = systemChoice.split("(")[0].strip()
-		systemFolder = path.join(romsetFolder, systemChoice)
-		for f in listdir(xmdbDir):
-			if f.split("(")[0].strip() == systemName:
-				xmdb = path.join(xmdbDir, f)
-				break
-		if xmdb == "":
-			print("XMDB for current system not found.")
-			print("Skipping current system.")
-			continue
-		fixNamesAndGenerateMergeDict()
-		generateSortedLog()
-		generate1G1RLog()
+		deviceProfiles = listdir(profilesFolder)
+		dp = makeChoice("Which profile?", deviceProfiles)
+		deviceProfile = path.join(profilesFolder, deviceProfiles[dp-1])
+		print("Please select the ROM directory of your "+deviceProfiles[dp-1]+" (example: F:\\Roms).")
+		root = Tk()
+		root.withdraw()
+		outputFolder = filedialog.askdirectory()
+		romsetCategory = getRomsetCategory()
+		if romsetCategory in ["Full", "1G1R"]:
+			systemFolder = path.join(romsetFolder, systemChoice)
+			for f in listdir(xmdbDir):
+				if f.split("(")[0].strip() == systemName:
+					xmdb = path.join(xmdbDir, f)
+					break
+			if xmdb == "":
+				print("XMDB for current system not found.")
+				print("Skipping current system.")
+				continue
+			fixNamesAndGenerateMergeDict()
+			copyRomset(romsetCategory)
+		otherCategory = getOtherCategory()
+		# if otherCategory == "True":
 
 def fixNamesAndGenerateMergeDict(verbose = False):
 	global mergeDict
@@ -116,7 +129,7 @@ def fixNamesAndGenerateMergeDict(verbose = False):
 	unmergedClones = []
 	skipAll = False
 	mergeDict = {}
-	contentsFile = path.join(textLogsFolder, "[Contents].txt")
+	# contentsFile = path.join(textLogsFolder, "[Contents].txt")
 	allFiles = [f for f in listdir(systemFolder) if path.isfile(path.join(systemFolder, f))]
 	tree = ET.parse(xmdb)
 	root = tree.getroot()
@@ -143,7 +156,7 @@ def fixNamesAndGenerateMergeDict(verbose = False):
 			# is breaking out here necessary/ideal?
 			if fixedCap:
 				break
-		mergeName = getBestMergeName(allBiases, allZones)[1]
+		mergeRegionIndex, mergeName = getBestMergeName(allBiases, allZones)
 		gameCurrLocation = getGameLocation(mergeName)
 		if gameCurrLocation is not None:
 			print("Attempting to resolve naming conflict for "+mergeName+"\n")
@@ -197,26 +210,144 @@ def fixNamesAndGenerateMergeDict(verbose = False):
 				else:
 					print("\nInvalid name. Skipping.")
 			if cloneExists:
-				addGameFileLocationToDict(mergeName, currCloneNameWithExt)
+				addGameFileLocationToDict((mergeName, mergeRegionIndex), currCloneNameWithExt)
 				mergedRoms.append(currCloneNameWithExt)
 				mergedClones.append(currCloneName)
 			else:
 				unmergedClones.append(currCloneName)
 		if verbose:
-			print("Recorded all versions of "+mergeName)
+			print("Scanned all versions of "+mergeName)
 		numCurrZoned += 1
 		if numCurrZoned % step == 0:
-			print(str(round(numCurrZoned*100/numZoneds, 1))+"% - Recorded "+str(numCurrZoned)+" of "+str(numZoneds)+".")
-	print("\nDICTIONARY:\n")
-	print(mergeDict)
+			print(str(round(numCurrZoned*100/numZoneds, 1))+"% - Scanned "+str(numCurrZoned)+" of "+str(numZoneds)+".")
+	# print("\nDICTIONARY:\n")
+	# print(mergeDict)
+	print("Finished scanning romset.")
 
-def generateSortedLog():
-	for game in mergeDict.keys():
-		currGame = mergeDict[game]
+def getRomsetCategory():
+	global systemName
+	global deviceProfile
 
-def generate1G1RLog():
-	for game in mergeDict.keys():
-		currGame = mergeDict[game]
+	profile = open(deviceProfile,"r")
+	lines = profile.readlines()
+	inCategory = False
+	for i in range(len(lines)):
+		if not inCategory:
+			if lines[i].startswith(": Romsets"):
+				inCategory = True
+			continue
+		if lines[i].strip() == systemName:
+			return lines[i+1].strip()
+	return "None"
+
+def getOtherCategory():
+	global systemName
+	global deviceProfile
+
+	profile = open(deviceProfile,"r")
+	lines = profile.readlines()
+	inCategory = False
+	for i in range(len(lines)):
+		if not inCategory:
+			if lines[i].startswith(": Other"):
+				inCategory = True
+			continue
+		if lines[i].strip() == systemName:
+			return lines[i+1].strip()
+	return "False"
+
+def copyRomset(romsetCategory):
+	global systemName
+	global systemFolder
+	global mergeDict
+
+	if romsetCategory not in ["Full", "1G1R"]:
+		return
+	numGames = len(mergeDict.keys())
+	step = numGames // 20
+	currGameNum = 0
+	for gameNameAndRegionNum in mergeDict.keys():
+		gameName, gameRegionNum = gameNameAndRegionNum
+		currGame = mergeDict[gameNameAndRegionNum]
+		bestRom = getBestRom(currGame)
+		attributes = getAttributeSplit(bestRom)
+		if gameName.startswith("[BIOS]"):
+			gameRegion = "[BIOS]"
+		elif "Test Program" in attributes:
+			gameRegion = "[Test Program]"
+		elif gameRegionNum == 0:
+			gameRegion = "[USA]"
+		elif gameRegionNum == 2:
+			gameRegion = "[Europe]"
+		elif gameRegionNum in [1,3,4]:
+			gameRegion = "[Other (English)]"
+		elif gameRegionNum == 5:
+			gameRegion = "[Japan]"
+		else:
+			gameRegion = "[Other (non-English)]"
+		unlicensedStr = "[Unlicensed]" if "Unl" in attributes else ""
+		unreleasedStr = "[Unreleased]" if "Proto" in attributes else ""
+		compilationStr = "[Compilation]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(comp) for comp in compilationArray])) else ""
+		classicNESStr = "[NES & Famicom]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(nes) for nes in classicNESArray])) else ""
+		gbaVideoStr = "[GBA Video]" if gameName.startswith("Game Boy Advance Video") else ""
+		if romsetCategory == "Full":
+			for rom in currGame:
+				oldFile = path.join(systemFolder, rom)
+				newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
+				newFile = path.join(newDir, rom)
+				if not path.isfile(newFile):
+					createDir(newDir)
+					shutil.copy(oldFile, newFile)
+		else:
+			oldFile = path.join(systemFolder, bestRom)
+			newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
+			newFile = path.join(newDir, bestRom)
+			if not path.isfile(newFile):
+				createDir(newDir)
+				shutil.copy(oldFile, newFile)
+		currGameNum += 1
+		if currGameNum%step == 0:
+			print(str(round(currGameNum*100.0/numGames, 1))+"% - Copied "+str(currGameNum)+" of "+str(numGames)+".")
+	print("\nFinished copying romset.")
+
+def getBestRom(clones):
+	zoneValues = []
+	cloneScores = []
+	sortedClones = sorted(clones)
+	for clone in sortedClones:
+		attributes = getAttributeSplit(clone)[1:]
+		revCheck = [a for a in attributes if len(a) >= 3]
+		versionCheck = [a[0] for a in attributes]
+		betaCheck = [a for a in attributes if len(a) >= 4]
+		protoCheck = [a for a in attributes if len(a) >= 5]
+		currZoneVal = 99
+		for i in range(len(biasPriority)):
+			if biasPriority[i] in attributes:
+				currZoneVal = i
+				break
+		zoneValues.append(currZoneVal)
+		currScore = 100
+		if "Rev" in revCheck:
+			currScore += 30
+		if "v" in versionCheck:
+			currScore += 30
+		if "Beta" in betaCheck or "Proto" in protoCheck:
+			currScore -= 50
+		if "Virtual Console" in attributes or "GameCube" in attributes or "Collection" in attributes:
+			currScore -= 10
+		if "Sample" in attributes or "Demo" in attributes:
+			currScore -= 90
+		cloneScores.append(currScore)
+	bestZones = numpy.where(zoneValues == numpy.min(zoneValues))[0].tolist()
+	finalZone = 99
+	bestScore = -500
+	for zone in bestZones:
+		currScore = cloneScores[zone]
+		if currScore >= bestScore:
+			bestScore = currScore
+			finalZone = zone
+	return sortedClones[finalZone]
+
 
 # -------------- #
 # Helper methods #
@@ -292,19 +423,19 @@ def getSuffix(attributes):
 		return " ("+att+")"
 	return ""
 
-def addGameFileLocationToDict(d, game):
+def addGameFileLocationToDict(key, game):
 	global mergeDict
 
-	if d not in mergeDict.keys():
-		mergeDict[d] = []
-	mergeDict[d].append(game)
+	if key not in mergeDict.keys():
+		mergeDict[key] = []
+	mergeDict[key].append(game)
 
 def getGameLocation(game):
 	global mergeDict
 
 	for key in mergeDict.keys():
 		if game in mergeDict[key]:
-			return key
+			return key[0]
 	return None
 
 def handleDuplicateName(mergeName, secondArchiveClones, mergeNameFirstLocation):
@@ -375,25 +506,30 @@ def guessOldName(recommendations, ccn):
 				return i+1
 	return 0
 
-def getFileExt(folder, file):
+def getFileExt(folder, fileName):
 	for f in listdir(folder):
 		fName, fExt = path.splitext(f)
-		if fName == file:
+		if fName == fileName:
 			return fExt
 	return ""
 
-def getOutputLocation(name, currZoned): # TODO: finish this
-	region = "Error"
-	isUnlicensed = False
-	isUnreleased = False
-	isCompilation = False
-	isClassicNESSeries = False
-	isGBAVideo = False
-	allClones = [clone.get("name").replace("&amp;", "&") for clone in currZoned.findall("clone")]
-	if "Test Program" in name:
-		region = "Test Program"
-	elif "[BIOS]" in name:
-		region = "BIOS"
+def createDir(p):
+	p1, p2 = path.split(p)
+	if p2 == "":
+		p = p1
+	pathArray = []
+	while True:
+		p1, p2 = path.split(p)
+		pathArray = [p2] + pathArray
+		if p2 == "":
+			pathArray = [p1] + pathArray
+			break
+		p = p1
+	currPath = pathArray[0]
+	for i in range(1, len(pathArray)):
+		currPath = path.join(currPath, pathArray[i])
+		if not path.isdir(currPath):
+			mkdir(currPath)
 
 if __name__ == '__main__':
 	main()
