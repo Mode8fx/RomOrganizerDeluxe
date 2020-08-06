@@ -19,6 +19,9 @@ driveLetter = path.splitdrive(mainFolder)[0]+"\\" # the drive where this program
 # The folder when your current romsets are stored
 romsetFolder = path.join(driveLetter, "Romsets")
 
+# The folder containing roms that aren't part of a set (rom hacks, homebrew, etc.)
+otherFolder = path.join(driveLetter, "Roms", "Other")
+
 # The folder containing your XMDB files
 xmdbDir = path.join(driveLetter, "Rom Tools", "No-Intro Database")
 

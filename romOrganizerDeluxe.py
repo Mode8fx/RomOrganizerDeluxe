@@ -8,11 +8,11 @@ from math import ceil
 from tkinter import filedialog
 from tkinter import *
 from settings import *
-from gatelib import makeChoice
+from gatelib import makeChoice, arrayOverlap
 
 # User settings
 systemDirs = [d for d in listdir(romsetFolder) if path.isdir(path.join(romsetFolder, d))]
-systemChoice = ""
+otherDirs = [d for d in listdir(otherFolder) if path.isdir(path.join(otherFolder, d))]
 systemName = ""
 systemFolder = ""
 xmdb = ""
@@ -81,29 +81,42 @@ classicNESArray = ["Classic NES Series", "Famicom Mini", "Hudson Best Collection
 # -------------- #
 
 def main():
-	global systemChoice
 	global systemName
 	global deviceProfile
 	global outputFolder
 	global systemFolder
 	global xmdb
 
-	systemChoices = makeChoice("Choose romset(s):", systemDirs+["All"], True)
+	systemChoices = makeChoice("Choose romset(s):", systemDirs+["All", "None"], allowMultiple=True)
 	if systemChoices is None:
-		print("\nNo romsets found. Quitting.")
-		sys.exit()
-	if len(systemDirs)+1 in systemChoices:
+		print("\nNo romsets found.")
+		systemChoices = []
+	if len(systemDirs)+2 in systemChoices:
+		systemChoices = []
+	elif len(systemDirs)+1 in systemChoices:
 		systemChoices = [range(1, len(systemChoices)+1)]
+
+	otherChoices = makeChoice("Choose other system(s):", otherDirs+["All", "None"], allowMultiple=True)
+	if otherChoices is None:
+		print("\nNo Other directory (or folders in Other directory) found.")
+		otherChoices = []
+	if len(otherDirs)+2 in otherChoices:
+		otherChoices = []
+	elif len(otherDirs)+1 in otherChoices:
+		otherChoices = [range(1, len(otherChoices)+1)]
+
+	deviceProfiles = listdir(profilesFolder)
+	dp = makeChoice("Which profile?", deviceProfiles)
+	deviceProfile = path.join(profilesFolder, deviceProfiles[dp-1])
+	ignoredAttributes = getIgnoredAttributes()
+	primaryRegions = getPrimaryRegions()
+	print("Please select the ROM directory of your "+deviceProfiles[dp-1]+" (example: F:\\Roms).")
+	root = Tk()
+	root.withdraw()
+	outputFolder = filedialog.askdirectory()
 	for sc in systemChoices:
 		systemChoice = systemDirs[sc-1]
 		systemName = systemChoice.split("(")[0].strip()
-		deviceProfiles = listdir(profilesFolder)
-		dp = makeChoice("Which profile?", deviceProfiles)
-		deviceProfile = path.join(profilesFolder, deviceProfiles[dp-1])
-		print("Please select the ROM directory of your "+deviceProfiles[dp-1]+" (example: F:\\Roms).")
-		root = Tk()
-		root.withdraw()
-		outputFolder = filedialog.askdirectory()
 		romsetCategory = getRomsetCategory()
 		if romsetCategory in ["Full", "1G1R"]:
 			systemFolder = path.join(romsetFolder, systemChoice)
@@ -116,13 +129,18 @@ def main():
 				print("Skipping current system.")
 				continue
 			fixNamesAndGenerateMergeDict()
-			copyRomset(romsetCategory)
+			copyRomset(romsetCategory, ignoredAttributes, primaryRegions)
+	for oc in otherChoices:
+		otherChoice = otherDirs[oc-1]
+		systemName = otherChoice.split("(")[0].strip()
 		otherCategory = getOtherCategory()
-		# if otherCategory == "True":
+		if otherFolder != "" and otherCategory == "True":
+			copyOther(ignoredAttributes)
 
 def fixNamesAndGenerateMergeDict(verbose = False):
 	global mergeDict
 	global systemFolder
+	global xmdb
 
 	mergedRoms = []
 	mergedClones = []
@@ -256,7 +274,47 @@ def getOtherCategory():
 			return lines[i+1].strip()
 	return "False"
 
-def copyRomset(romsetCategory):
+def getIgnoredAttributes():
+	global systemName
+	global deviceProfile
+
+	profile = open(deviceProfile,"r")
+	lines = profile.readlines()
+	inCategory = False
+	ignoredAttributes = []
+	for i in range(len(lines)):
+		if not inCategory:
+			if lines[i].startswith(": Ignore"):
+				inCategory = True
+			continue
+		currLine = lines[i].strip()
+		if currLine == "":
+			return ignoredAttributes
+		else:
+			ignoredAttributes.append(currLine)
+	return ignoredAttributes
+
+def getPrimaryRegions():
+	global systemName
+	global deviceProfile
+
+	profile = open(deviceProfile,"r")
+	lines = profile.readlines()
+	inCategory = False
+	primaryRegions = []
+	for i in range(len(lines)):
+		if not inCategory:
+			if lines[i].startswith(": Primary Regions"):
+				inCategory = True
+			continue
+		currLine = lines[i].strip()
+		if currLine == "":
+			return primaryRegions
+		else:
+			primaryRegions.append(currLine)
+	return primaryRegions
+
+def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 	global systemName
 	global systemFolder
 	global mergeDict
@@ -285,6 +343,8 @@ def copyRomset(romsetCategory):
 			gameRegion = "[Japan]"
 		else:
 			gameRegion = "[Other (non-English)]"
+		if gameRegion in primaryRegions:
+			gameRegion = ""
 		unlicensedStr = "[Unlicensed]" if "Unl" in attributes else ""
 		unreleasedStr = "[Unreleased]" if "Proto" in attributes else ""
 		compilationStr = "[Compilation]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(comp) for comp in compilationArray])) else ""
@@ -294,6 +354,9 @@ def copyRomset(romsetCategory):
 			for rom in currGame:
 				oldFile = path.join(systemFolder, rom)
 				newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
+				newDirPathArray = getPathArray(newDir)
+				if arrayOverlap(ignoredAttributes, newDirPathArray):
+					continue
 				newFile = path.join(newDir, rom)
 				if not path.isfile(newFile):
 					createDir(newDir)
@@ -301,6 +364,9 @@ def copyRomset(romsetCategory):
 		else:
 			oldFile = path.join(systemFolder, bestRom)
 			newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
+			newDirPathArray = getPathArray(newDir)
+			if arrayOverlap(ignoredAttributes, newDirPathArray):
+				continue
 			newFile = path.join(newDir, bestRom)
 			if not path.isfile(newFile):
 				createDir(newDir)
@@ -310,44 +376,33 @@ def copyRomset(romsetCategory):
 			print(str(round(currGameNum*100.0/numGames, 1))+"% - Copied "+str(currGameNum)+" of "+str(numGames)+".")
 	print("\nFinished copying romset.")
 
-def getBestRom(clones):
-	zoneValues = []
-	cloneScores = []
-	sortedClones = sorted(clones)
-	for clone in sortedClones:
-		attributes = getAttributeSplit(clone)[1:]
-		revCheck = [a for a in attributes if len(a) >= 3]
-		versionCheck = [a[0] for a in attributes]
-		betaCheck = [a for a in attributes if len(a) >= 4]
-		protoCheck = [a for a in attributes if len(a) >= 5]
-		currZoneVal = 99
-		for i in range(len(biasPriority)):
-			if biasPriority[i] in attributes:
-				currZoneVal = i
-				break
-		zoneValues.append(currZoneVal)
-		currScore = 100
-		if "Rev" in revCheck:
-			currScore += 30
-		if "v" in versionCheck:
-			currScore += 30
-		if "Beta" in betaCheck or "Proto" in protoCheck:
-			currScore -= 50
-		if "Virtual Console" in attributes or "GameCube" in attributes or "Collection" in attributes:
-			currScore -= 10
-		if "Sample" in attributes or "Demo" in attributes:
-			currScore -= 90
-		cloneScores.append(currScore)
-	bestZones = numpy.where(zoneValues == numpy.min(zoneValues))[0].tolist()
-	finalZone = 99
-	bestScore = -500
-	for zone in bestZones:
-		currScore = cloneScores[zone]
-		if currScore >= bestScore:
-			bestScore = currScore
-			finalZone = zone
-	return sortedClones[finalZone]
+def copyOther(ignoredAttributes):
+	global systemName
 
+	print("Copying Other folder for "+systemName+".")
+	numFiles = 0
+	for root, dirs, files in walk(path.join(otherFolder, systemName)):
+		for file in files:
+			numFiles += 1
+	step = numFiles // 20
+	currFileNum = 0
+	sourceSystemOtherDir = path.join(otherFolder, systemName)
+	for root, dirs, files in walk(sourceSystemOtherDir):
+		for fileName in files:
+			currRoot = root.split(sourceSystemOtherDir)[1][1:]
+			oldFileDirPathArray = getPathArray(root)
+			if arrayOverlap(ignoredAttributes, oldFileDirPathArray):
+				continue
+			newFileDir = path.join(outputFolder, systemName, currRoot)
+			newFile = path.join(newFileDir, fileName)
+			if not path.isfile(newFile):
+				createDir(newFileDir)
+				oldFile = path.join(root, fileName)
+				shutil.copy(oldFile, newFile)
+			currFileNum += 1
+			if currFileNum%step == 0:
+				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Copied "+str(currFileNum)+" of "+str(numFiles)+".")
+	print("Finished copying Other folder.")
 
 # -------------- #
 # Helper methods #
@@ -513,7 +568,7 @@ def getFileExt(folder, fileName):
 			return fExt
 	return ""
 
-def createDir(p):
+def getPathArray(p):
 	p1, p2 = path.split(p)
 	if p2 == "":
 		p = p1
@@ -523,8 +578,51 @@ def createDir(p):
 		pathArray = [p2] + pathArray
 		if p2 == "":
 			pathArray = [p1] + pathArray
-			break
+			return pathArray
 		p = p1
+
+def getBestRom(clones):
+	zoneValues = []
+	cloneScores = []
+	sortedClones = sorted(clones)
+	for clone in sortedClones:
+		attributes = getAttributeSplit(clone)[1:]
+		revCheck = [a for a in attributes if len(a) >= 3]
+		versionCheck = [a[0] for a in attributes]
+		betaCheck = [a for a in attributes if len(a) >= 4]
+		protoCheck = [a for a in attributes if len(a) >= 5]
+		currZoneVal = 99
+		for i in range(len(biasPriority)):
+			if biasPriority[i] in attributes:
+				currZoneVal = i
+				break
+		zoneValues.append(currZoneVal)
+		currScore = 100
+		if "Rev" in revCheck:
+			currScore += 30
+		if "v" in versionCheck:
+			currScore += 30
+		if "Beta" in betaCheck or "Proto" in protoCheck:
+			currScore -= 50
+		if "Virtual Console" in attributes or "GameCube" in attributes or "Collection" in attributes:
+			currScore -= 10
+		if "Sample" in attributes or "Demo" in attributes:
+			currScore -= 90
+		cloneScores.append(currScore)
+	bestZones = numpy.where(zoneValues == numpy.min(zoneValues))[0].tolist()
+	finalZone = 99
+	bestScore = -500
+	for zone in bestZones:
+		currScore = cloneScores[zone]
+		if currScore >= bestScore:
+			bestScore = currScore
+			finalZone = zone
+	return sortedClones[finalZone]
+
+def createDir(p):
+	if path.isdir(p):
+		return
+	pathArray = getPathArray(p)
 	currPath = pathArray[0]
 	for i in range(1, len(pathArray)):
 		currPath = path.join(currPath, pathArray[i])

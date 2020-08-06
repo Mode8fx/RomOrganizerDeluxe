@@ -39,6 +39,12 @@ def makeChoiceNumInput(question, minVal, maxVal):
 		except:
 			print("Invalid input.")
 
+def arrayOverlap(arr1, arr2):
+	for a in arr1:
+		if a in arr2:
+			return True
+	return False
+
 def encodeSeed(varArray, maxValueArray, base=10):
 	if base > 36:
 		print("Base must be between 2 and 36. Lowering to 36.")
