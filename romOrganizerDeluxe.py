@@ -8,7 +8,7 @@ from math import ceil
 from tkinter import filedialog
 from tkinter import *
 from settings import *
-from gatelib import makeChoice, arrayOverlap
+from gatelib import makeChoice, arrayOverlap, getPathArray, createDir, removeEmptyFolders
 
 # User settings
 systemDirs = [d for d in listdir(romsetFolder) if path.isdir(path.join(romsetFolder, d))]
@@ -82,6 +82,7 @@ classicNESArray = ["Classic NES Series", "Famicom Mini", "Hudson Best Collection
 
 def main():
 	global systemName
+	global deviceName
 	global deviceProfile
 	global outputFolder
 	global systemFolder
@@ -107,19 +108,21 @@ def main():
 
 	deviceProfiles = listdir(profilesFolder)
 	dp = makeChoice("Which profile?", deviceProfiles)
-	deviceProfile = path.join(profilesFolder, deviceProfiles[dp-1])
+	dn = deviceProfiles[dp-1]
+	deviceProfile = path.join(profilesFolder, dn)
+	deviceName = path.splitext(dn)[0]
+	updateOtherChoice = makeChoice("Update Other folder by adding any files that are exclusive to "+deviceName+"?", ["Yes", "No"])
 	ignoredAttributes = getIgnoredAttributes()
 	primaryRegions = getPrimaryRegions()
-	print("Please select the ROM directory of your "+deviceProfiles[dp-1]+" (example: F:\\Roms).")
+	print("\nPlease select the ROM directory of your "+deviceName+" (example: F:\\Roms).")
 	root = Tk()
 	root.withdraw()
 	outputFolder = filedialog.askdirectory()
 	for sc in systemChoices:
-		systemChoice = systemDirs[sc-1]
-		systemName = systemChoice.split("(")[0].strip()
+		systemName = systemDirs[sc-1]
 		romsetCategory = getRomsetCategory()
 		if romsetCategory in ["Full", "1G1R"]:
-			systemFolder = path.join(romsetFolder, systemChoice)
+			systemFolder = path.join(romsetFolder, systemName)
 			for f in listdir(xmdbDir):
 				if f.split("(")[0].strip() == systemName:
 					xmdb = path.join(xmdbDir, f)
@@ -136,6 +139,8 @@ def main():
 		otherCategory = getOtherCategory()
 		if otherFolder != "" and otherCategory == "True":
 			copyOther(ignoredAttributes)
+	if updateOtherChoice == 1:
+		updateOther()
 
 def fixNamesAndGenerateMergeDict(verbose = False):
 	global mergeDict
@@ -321,9 +326,11 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 
 	if romsetCategory not in ["Full", "1G1R"]:
 		return
+	print("\nCopying romset for "+systemName+".")
 	numGames = len(mergeDict.keys())
 	step = numGames // 20
 	currGameNum = 0
+	numNewFilesInOutput = 0
 	for gameNameAndRegionNum in mergeDict.keys():
 		gameName, gameRegionNum = gameNameAndRegionNum
 		currGame = mergeDict[gameNameAndRegionNum]
@@ -361,6 +368,7 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 				if not path.isfile(newFile):
 					createDir(newDir)
 					shutil.copy(oldFile, newFile)
+					numNewFilesInOutput += 1
 		else:
 			oldFile = path.join(systemFolder, bestRom)
 			newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
@@ -371,16 +379,19 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 			if not path.isfile(newFile):
 				createDir(newDir)
 				shutil.copy(oldFile, newFile)
+				numNewFilesInOutput += 1
 		currGameNum += 1
 		if currGameNum%step == 0:
-			print(str(round(currGameNum*100.0/numGames, 1))+"% - Copied "+str(currGameNum)+" of "+str(numGames)+".")
-	print("\nFinished copying romset.")
+			print(str(round(currGameNum*100.0/numGames, 1))+"% - Confirmed "+str(currGameNum)+" of "+str(numGames)+" game folders.")
+	print("\nCopied "+str(numNewFilesInOutput)+" new files.")
+	print("Finished copying romset.")
 
 def copyOther(ignoredAttributes):
 	global systemName
 
-	print("Copying Other folder for "+systemName+".")
+	print("\nCopying Other folder for "+systemName+".")
 	numFiles = 0
+	numNewFilesInOutput = 0
 	for root, dirs, files in walk(path.join(otherFolder, systemName)):
 		for file in files:
 			numFiles += 1
@@ -398,11 +409,39 @@ def copyOther(ignoredAttributes):
 			if not path.isfile(newFile):
 				createDir(newFileDir)
 				oldFile = path.join(root, fileName)
+				numNewFilesInOutput += 1
 				shutil.copy(oldFile, newFile)
 			currFileNum += 1
 			if currFileNum%step == 0:
 				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Copied "+str(currFileNum)+" of "+str(numFiles)+".")
+	print("\nCopied "+str(numNewFilesInOutput)+" new files.")
 	print("Finished copying Other folder.")
+
+def updateOther():
+	global outputFolder
+	global deviceName
+
+	print("\nUpdating Other folder from "+deviceName+".")
+	numNewFilesInOther = 0
+	for root, dirs, files in walk(outputFolder):
+		currRoot = root.split(outputFolder)[1][1:]
+		try:
+			currSystem = getPathArray(currRoot)[0]
+		except:
+			currSystem = ""
+		for file in files:
+			fileInOutput = path.join(root, file)
+			fileInRomset = path.join(romsetFolder, currSystem, file)
+			fileInOther = path.join(otherFolder, currRoot, file)
+			if not (path.isfile(fileInRomset) or path.isfile(fileInOther)):
+				createDir(path.join(otherFolder, currRoot))
+				shutil.copy(fileInOutput, fileInOther)
+				print("From "+deviceName+" to Other: "+fileInOther)
+				numNewFilesInOther += 1
+	print("\nSuccessfully updated Other folder with "+str(numNewFilesInOther)+" new files.")
+	print("\nRemoving empty folders from Other...")
+	removeEmptyFolders(otherFolder, True)
+	print("Done.")
 
 # -------------- #
 # Helper methods #
@@ -568,19 +607,6 @@ def getFileExt(folder, fileName):
 			return fExt
 	return ""
 
-def getPathArray(p):
-	p1, p2 = path.split(p)
-	if p2 == "":
-		p = p1
-	pathArray = []
-	while True:
-		p1, p2 = path.split(p)
-		pathArray = [p2] + pathArray
-		if p2 == "":
-			pathArray = [p1] + pathArray
-			return pathArray
-		p = p1
-
 def getBestRom(clones):
 	zoneValues = []
 	cloneScores = []
@@ -618,16 +644,6 @@ def getBestRom(clones):
 			bestScore = currScore
 			finalZone = zone
 	return sortedClones[finalZone]
-
-def createDir(p):
-	if path.isdir(p):
-		return
-	pathArray = getPathArray(p)
-	currPath = pathArray[0]
-	for i in range(1, len(pathArray)):
-		currPath = path.join(currPath, pathArray[i])
-		if not path.isdir(currPath):
-			mkdir(currPath)
 
 if __name__ == '__main__':
 	main()

@@ -1,3 +1,5 @@
+from os import path, mkdir, listdir
+
 def makeChoice(question, choices, allowMultiple=False):
 	numChoices = len(choices)
 	if numChoices == 0:
@@ -120,3 +122,59 @@ def writeToAddress(file, address, val, numBytes=1):
 		address -= 1
 		val = val>>8
 	return True
+
+# taken from https://gist.github.com/jacobtomlinson/9031697
+def removeEmptyFolders(p, removeRoot=True):
+	if not path.isdir(p):
+		return
+	files = listdir(p)
+	if len(files):
+		for f in files:
+			fullpath = path.join(p, f)
+			if path.isdir(fullpath):
+				removeEmptyFolders(fullpath)
+	files = listdir(p)
+	if len(files) == 0 and removeRoot:
+		rmdir(p)
+
+def getPathArray(p):
+	p1, p2 = path.split(p)
+	if p2 == "":
+		p = p1
+	pathArray = []
+	while True:
+		p1, p2 = path.split(p)
+		pathArray = [p2] + pathArray
+		if p2 == "":
+			pathArray = [p1] + pathArray
+			try:
+				while pathArray[0] == "":
+					del pathArray[0]
+			except:
+				pass
+			return pathArray
+		p = p1
+
+def createDir(p):
+	if path.isdir(p):
+		return
+	pathArray = getPathArray(p)
+	currPath = pathArray[0]
+	for i in range(1, len(pathArray)):
+		currPath = path.join(currPath, pathArray[i])
+		if not path.isdir(currPath):
+			mkdir(currPath)
+
+
+
+"""
+SOURCES
+
+dec_to_base
+https://www.codespeedy.com/inter-convert-decimal-and-any-base-using-python/
+
+removeEmptyFolders
+https://gist.github.com/jacobtomlinson/9031697
+
+All other functions made by GateGuy
+"""
