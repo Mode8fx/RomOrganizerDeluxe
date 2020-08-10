@@ -1,5 +1,5 @@
 import sys
-from os import path, mkdir, listdir, remove, walk, rename, rmdir
+from os import path
 
 # the same folder where this program is stored
 if getattr(sys, 'frozen', False):
@@ -14,7 +14,7 @@ driveLetter = path.splitdrive(mainFolder)[0]+"\\"
 # EDIT BELOW THIS LINE #
 ########################
 
-# Directories
+# These are only examples; make sure you replace them with your own directories.
 
 """
 A directory can be an absolute path (make sure you put the path in quotes and use two back-slashes to separate folders):

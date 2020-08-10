@@ -1,3 +1,4 @@
+from os import path, mkdir, listdir, remove, walk, rename, rmdir
 import re
 import xml.etree.ElementTree as ET
 import zipfile
@@ -8,14 +9,34 @@ from math import ceil
 from time import sleep
 from tkinter import filedialog
 from tkinter import *
-from settings import *
+
+# the same folder where this program is stored
+if getattr(sys, 'frozen', False):
+	progFolder = path.dirname(sys.executable) # EXE (executable) file
+else:
+	progFolder = path.dirname(path.realpath(__file__)) # PY (source) file
+sys.path.append(progFolder)
+
+try:
+	from settings import *
+except:
+	print("Settings file not found.")
+	from settingsRebuilder import *
+	rebuildSettingsFile()
+	print("Created new settings file as settings.py. Edit settings.py with your own directories.")
+	input("Press Enter to exit.")
+	sys.exit()
 from gatelib import makeChoice, arrayOverlap, getPathArray, createDir, removeEmptyFolders
 
 # User settings
+if not path.isdir(profilesFolder):
+	print("Profiles folder not found. Creating new folder as "+profilesFolder)
+	createDir(profilesFolder)
 if romsetFolder == "":
 	systemDirs = []
 elif not path.isdir(romsetFolder):
 	print("WARNING: Could not find romset folder.")
+	sleep(2)
 	systemDirs = []
 else:
 	systemDirs = [d for d in listdir(romsetFolder) if path.isdir(path.join(romsetFolder, d))]
@@ -24,6 +45,7 @@ if otherFolder == "":
 	otherDirs = []
 elif not path.isdir(otherFolder):
 	print("WARNING: Could not find Other folder.")
+	sleep(2)
 	otherDirs = []
 else:
 	otherDirs = [d for d in listdir(otherFolder) if path.isdir(path.join(otherFolder, d))]
@@ -98,10 +120,13 @@ def main():
 	global outputFolder
 	global systemFolder
 	global xmdb
+	print("\n########################")
+	print("# Rom Organizer Deluxe #")
+	print("########################\n")
 
 	deviceProfiles = listdir(profilesFolder)
 	if len(deviceProfiles) > 0:
-		dp = makeChoice("Select a device profile (which device are you copying to?)", [path.splitext(prof)[0] for prof in deviceProfiles]+["Create new profile"])
+		dp = makeChoice("\nSelect a device profile (which device are you copying to?)", [path.splitext(prof)[0] for prof in deviceProfiles]+["Create new profile"])
 		if dp == len(deviceProfiles)+1:
 			createDeviceProfile()
 		else:
@@ -109,7 +134,7 @@ def main():
 			deviceProfile = path.join(profilesFolder, dn)
 			deviceName = path.splitext(dn)[0]
 	else:
-		print("No device profiles found. Please follow these steps to create a new profile.")
+		print("\nNo device profiles found. Please follow these steps to create a new profile.")
 		createDeviceProfile()
 	currProfileSystemDirs = [d for d in systemDirs if getRomsetCategory(d) != "None"]
 	if len(currProfileSystemDirs) == 0:
@@ -142,10 +167,16 @@ def main():
 		allowInterruptions = (ai == 1)
 	else:
 		allowInterruptions = False
-	print("\nPlease select the ROM directory of your "+deviceName+" (example: F:\\Roms).")
+	print("\nPlease select the ROM directory of your "+deviceName+" (example: F:/Roms).")
 	root = Tk()
 	root.withdraw()
-	outputFolder = filedialog.askdirectory()
+	outputFolder = ""
+	while outputFolder == "":
+		outputFolder = filedialog.askdirectory()
+		if outputFolder != "":
+			isCorrect = makeChoice("Are you sure this is the correct folder?\n"+outputFolder, ["Yes", "No"])
+			if isCorrect == 2:
+				outputFolder = ""
 	if logFolder != "":
 		createDir(logFolder)
 	for sc in systemChoices:
@@ -167,7 +198,7 @@ def main():
 		for oc in otherChoices:
 			otherChoice = currProfileOtherDirs[oc-1]
 			systemName = otherChoice.split("(")[0].strip()
-			otherCategory = getOtherCategory()
+			otherCategory = getOtherCategory(systemName)
 			if otherCategory == "True":
 				copyOther(ignoredAttributes)
 	if updateFromDeviceFolder != "":
@@ -175,6 +206,7 @@ def main():
 			updateOther()
 	if logFolder != "":
 		print("\nReview the log files for more information on what files were excanged between the main drive and "+deviceName+".")
+	input("Press Enter to exit.")
 
 def createDeviceProfile():
 	global deviceName
@@ -182,7 +214,7 @@ def createDeviceProfile():
 
 	deviceName = ""
 	while deviceName == "":
-		print("(1/4) What would you like to name this profile?")
+		print("\n(1/4) What would you like to name this profile?")
 		deviceName = input().strip()
 	deviceProfile = path.join(profilesFolder, deviceName+".txt")
 	dpFile = open(deviceProfile, "w")
@@ -355,9 +387,11 @@ def getRomsetCategory(currSystemName):
 			continue
 		if lines[i].strip() == currSystemName:
 			return lines[i+1].strip()
+	print("WARNING: "+currSystemName+" not found in current profile. Please add it manually.\nDefaulting to None.")
+	sleep(2)
 	return "None"
 
-def getOtherCategory():
+def getOtherCategory(currSystemName):
 	profile = open(deviceProfile,"r")
 	lines = profile.readlines()
 	inCategory = False
@@ -366,8 +400,10 @@ def getOtherCategory():
 			if lines[i].startswith(": Other"):
 				inCategory = True
 			continue
-		if lines[i].strip() == systemName:
+		if lines[i].strip() == currSystemName:
 			return lines[i+1].strip()
+	print("WARNING: "+currSystemName+" not found in current profile. Please add it manually.\nDefaulting to False.")
+	sleep(2)
 	return "False"
 
 def getIgnoredAttributes():
@@ -764,19 +800,21 @@ def createNewRomsetLog(newOtherFiles):
 		romsetLogFile.close()
 
 def createNewFromOtherLog(newOtherFiles):
+	updateFolderName = path.basename(updateFromDeviceFolder)
 	if len(newOtherFiles) > 0:
 		newOtherFiles.sort()
-		otherLogFile = open(path.join(logFolder, "Log - Other (to "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
-		otherLogFile.writelines("= Copied "+str(len(newOtherFiles))+" new files from Other to "+deviceName+" ===\n\n")
+		otherLogFile = open(path.join(logFolder, "Log - "+updateFolderName+" (to "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
+		otherLogFile.writelines("= Copied "+str(len(newOtherFiles))+" new files from "+updateFolderName+" to "+deviceName+" ===\n\n")
 		for file in newOtherFiles:
 			otherLogFile.writelines(file+"\n")
 		otherLogFile.close()
 
 def createNewInOtherLog(newFilesInOther):
+	updateFolderName = path.basename(updateFromDeviceFolder)
 	if len(newFilesInOther):
 		newFilesInOther.sort()
-		otherLogFile = open(path.join(logFolder, "Log - Other (from "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
-		otherLogFile.writelines("= Copied "+str(len(newFilesInOther))+" new files from "+deviceName+" to Other ===\n\n")
+		otherLogFile = open(path.join(logFolder, "Log - "+updateFolderName+" (from "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
+		otherLogFile.writelines("= Copied "+str(len(newFilesInOther))+" new files from "+deviceName+" to "+updateFolderName+" ===\n\n")
 		for file in newFilesInOther:
 			otherLogFile.writelines(file+"\n")
 		otherLogFile.close()
