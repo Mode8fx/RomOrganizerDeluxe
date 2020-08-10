@@ -191,7 +191,7 @@ def createDeviceProfile():
 	for d in systemDirs:
 		copyType = makeChoice(d, ["Full (copy all contents)",
 			"1G1R (copy only the most significant rom for each game)",
-			"1G1R Primary (same as 1G1R, but ignore games that do not have a rom for a primary region (explained in question 4)"
+			"1G1R Primary (same as 1G1R, but ignore games that do not have a rom for a primary region (explained in question 4)",
 			"None (skip this system)"])
 		if copyType == 1:
 			copyType = "Full"
