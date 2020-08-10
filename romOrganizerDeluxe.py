@@ -151,7 +151,7 @@ def main():
 	for sc in systemChoices:
 		systemName = currProfileSystemDirs[sc-1]
 		romsetCategory = getRomsetCategory(systemName)
-		if romsetCategory in ["Full", "1G1R"]:
+		if romsetCategory in ["Full", "1G1R", "1G1R Primary"]:
 			systemFolder = path.join(romsetFolder, systemName)
 			for f in listdir(xmdbDir):
 				if f.split("(")[0].strip() == systemName:
@@ -197,6 +197,8 @@ def createDeviceProfile():
 			copyType = "Full"
 		elif copyType == 2:
 			copyType = "1G1R"
+		elif copyType == 3:
+			copyType = "1G1R Primary"
 		else:
 			copyType = "None"
 		dpFile.writelines(d+"\n"+copyType+"\n")
