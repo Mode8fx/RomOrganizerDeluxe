@@ -142,24 +142,28 @@ def main():
 			print("The current profile does not allow any romsets.")
 		systemChoices = []
 	else:
-		systemChoices = makeChoice("Choose romset(s):", currProfileSystemDirs+["All", "None"], allowMultiple=True)
+		systemChoices = makeChoice("Select romset(s). You can select multiple choices by separating them with spaces:", currProfileSystemDirs+["All", "None"], allowMultiple=True)
 		if len(currProfileSystemDirs)+2 in systemChoices:
 			systemChoices = []
 		elif len(currProfileSystemDirs)+1 in systemChoices:
 			systemChoices = list(range(1, len(currProfileSystemDirs)+1))
 	if otherFolder != "":
+		updateFolderName = path.basename(otherFolder)
 		currProfileOtherDirs = [d for d in otherDirs if getRomsetCategory(d) == "True"]
 		if len(currProfileSystemDirs) == 0:
 			if len(otherDirs) > 0:
-				print("The current profile does not allow any Other folders.")
+				print("The current profile does not allow any "+updateFolderName+" folders.")
 			otherChoices = []
-		otherChoices = makeChoice("Choose system(s) from Other folder:", currProfileOtherDirs+["All", "None"], allowMultiple=True)
-		if len(currProfileOtherDirs)+2 in otherChoices:
-			otherChoices = []
-		elif len(currProfileOtherDirs)+1 in otherChoices:
-			otherChoices = list(range(1, len(currProfileOtherDirs)+1))
-	if otherFolder != "":
-		updateOtherChoice = makeChoice("Update \""+path.basename(updateFromDeviceFolder)+"\" folder by adding any files that are currently exclusive to "+deviceName+"?", ["Yes", "No"])
+		else:
+			otherChoices = makeChoice("Select system(s) from "+updateFolderName+" folder. You can select multiple choices by separating them with spaces:", currProfileOtherDirs+["All", "None"], allowMultiple=True)
+			if len(currProfileOtherDirs)+2 in otherChoices:
+				otherChoices = []
+			elif len(currProfileOtherDirs)+1 in otherChoices:
+				otherChoices = list(range(1, len(currProfileOtherDirs)+1))
+		if updateFromDeviceFolder != "":
+			updateOtherChoice = makeChoice("Update \""+path.basename(updateFromDeviceFolder)+"\" folder by adding any files that are currently exclusive to "+deviceName+"?", ["Yes", "No"])
+		else:
+			updateOtherChoice = 2
 	ignoredAttributes = getIgnoredAttributes()
 	primaryRegions = getPrimaryRegions()
 	if len(systemChoices) > 0:
