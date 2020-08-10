@@ -1,4 +1,4 @@
-from os import path, mkdir, listdir
+from os import path, mkdir, listdir, rmdir
 
 def makeChoice(question, choices, allowMultiple=False):
 	numChoices = len(choices)
@@ -7,7 +7,7 @@ def makeChoice(question, choices, allowMultiple=False):
 		return None
 	if numChoices == 1:
 		print("A question was asked with only one valid answer. Returning this answer.")
-		return choices[0]
+		return 1
 	print("\n"+question)
 	for i in range(numChoices):
 		print(str(i+1)+": "+choices[i])

@@ -5,17 +5,28 @@ import numpy
 import shutil
 from pathlib import Path as plpath
 from math import ceil
+from time import sleep
 from tkinter import filedialog
 from tkinter import *
 from settings import *
 from gatelib import makeChoice, arrayOverlap, getPathArray, createDir, removeEmptyFolders
 
 # User settings
-systemDirs = [d for d in listdir(romsetFolder) if path.isdir(path.join(romsetFolder, d))]
-otherDirs = [d for d in listdir(otherFolder) if path.isdir(path.join(otherFolder, d))]
-systemName = ""
-systemFolder = ""
-xmdb = ""
+if romsetFolder == "":
+	systemDirs = []
+elif not path.isdir(romsetFolder):
+	print("WARNING: Could not find romset folder.")
+	systemDirs = []
+else:
+	systemDirs = [d for d in listdir(romsetFolder) if path.isdir(path.join(romsetFolder, d))]
+
+if otherFolder == "":
+	otherDirs = []
+elif not path.isdir(otherFolder):
+	print("WARNING: Could not find Other folder.")
+	otherDirs = []
+else:
+	otherDirs = [d for d in listdir(otherFolder) if path.isdir(path.join(otherFolder, d))]
 
 biasPriority = ["World","USA","En","Europe","Australia","Canada","Japan","Ja","France","Fr","Germany","De","Spain","Es","Italy","It","Norway","Brazil","Sweden","China","Zh","Korea","Ko","Asia","Netherlands","Russia","Ru","Denmark","Nl","Pt","Sv","No","Da","Fi","Pl","Unknown"]
 zoneBiasValues = {
@@ -88,39 +99,58 @@ def main():
 	global systemFolder
 	global xmdb
 
-	systemChoices = makeChoice("Choose romset(s):", systemDirs+["All", "None"], allowMultiple=True)
-	if systemChoices is None:
-		print("\nNo romsets found.")
-		systemChoices = []
-	if len(systemDirs)+2 in systemChoices:
-		systemChoices = []
-	elif len(systemDirs)+1 in systemChoices:
-		systemChoices = [range(1, len(systemChoices)+1)]
-
-	otherChoices = makeChoice("Choose other system(s):", otherDirs+["All", "None"], allowMultiple=True)
-	if otherChoices is None:
-		print("\nNo Other directory (or folders in Other directory) found.")
-		otherChoices = []
-	if len(otherDirs)+2 in otherChoices:
-		otherChoices = []
-	elif len(otherDirs)+1 in otherChoices:
-		otherChoices = [range(1, len(otherChoices)+1)]
-
 	deviceProfiles = listdir(profilesFolder)
-	dp = makeChoice("Which profile?", deviceProfiles)
-	dn = deviceProfiles[dp-1]
-	deviceProfile = path.join(profilesFolder, dn)
-	deviceName = path.splitext(dn)[0]
-	updateOtherChoice = makeChoice("Update Other folder by adding any files that are exclusive to "+deviceName+"?", ["Yes", "No"])
+	if len(deviceProfiles) > 0:
+		dp = makeChoice("Select a device profile (which device are you copying to?)", [path.splitext(prof)[0] for prof in deviceProfiles]+["Create new profile"])
+		if dp == len(deviceProfiles)+1:
+			createDeviceProfile()
+		else:
+			dn = deviceProfiles[dp-1]
+			deviceProfile = path.join(profilesFolder, dn)
+			deviceName = path.splitext(dn)[0]
+	else:
+		print("No device profiles found. Please follow these steps to create a new profile.")
+		createDeviceProfile()
+	currProfileSystemDirs = [d for d in systemDirs if getRomsetCategory(d) != "None"]
+	if len(currProfileSystemDirs) == 0:
+		if len(systemDirs) > 0:
+			print("The current profile does not allow any romsets.")
+		systemChoices = []
+	else:
+		systemChoices = makeChoice("Choose romset(s):", currProfileSystemDirs+["All", "None"], allowMultiple=True)
+		if len(currProfileSystemDirs)+2 in systemChoices:
+			systemChoices = []
+		elif len(currProfileSystemDirs)+1 in systemChoices:
+			systemChoices = list(range(1, len(currProfileSystemDirs)+1))
+	if otherFolder != "":
+		currProfileOtherDirs = [d for d in otherDirs if getRomsetCategory(d) == "True"]
+		if len(currProfileSystemDirs) == 0:
+			if len(otherDirs) > 0:
+				print("The current profile does not allow any Other folders.")
+			otherChoices = []
+		otherChoices = makeChoice("Choose system(s) from Other folder:", currProfileOtherDirs+["All", "None"], allowMultiple=True)
+		if len(currProfileOtherDirs)+2 in otherChoices:
+			otherChoices = []
+		elif len(currProfileOtherDirs)+1 in otherChoices:
+			otherChoices = list(range(1, len(currProfileOtherDirs)+1))
+	if otherFolder != "":
+		updateOtherChoice = makeChoice("Update \""+path.basename(updateFromDeviceFolder)+"\" folder by adding any files that are currently exclusive to "+deviceName+"?", ["Yes", "No"])
 	ignoredAttributes = getIgnoredAttributes()
 	primaryRegions = getPrimaryRegions()
+	if len(systemChoices) > 0:
+		ai = makeChoice("How should unfound database entries be handled?", ["Pause when a database entry is not found so I can correct it", "Skip all interruptions"])
+		allowInterruptions = (ai == 1)
+	else:
+		allowInterruptions = False
 	print("\nPlease select the ROM directory of your "+deviceName+" (example: F:\\Roms).")
 	root = Tk()
 	root.withdraw()
 	outputFolder = filedialog.askdirectory()
+	if logFolder != "":
+		createDir(logFolder)
 	for sc in systemChoices:
-		systemName = systemDirs[sc-1]
-		romsetCategory = getRomsetCategory()
+		systemName = currProfileSystemDirs[sc-1]
+		romsetCategory = getRomsetCategory(systemName)
 		if romsetCategory in ["Full", "1G1R"]:
 			systemFolder = path.join(romsetFolder, systemName)
 			for f in listdir(xmdbDir):
@@ -131,28 +161,93 @@ def main():
 				print("XMDB for current system not found.")
 				print("Skipping current system.")
 				continue
-			fixNamesAndGenerateMergeDict()
+			fixNamesAndGenerateMergeDict(allowInterruptions)
 			copyRomset(romsetCategory, ignoredAttributes, primaryRegions)
-	for oc in otherChoices:
-		otherChoice = otherDirs[oc-1]
-		systemName = otherChoice.split("(")[0].strip()
-		otherCategory = getOtherCategory()
-		if otherFolder != "" and otherCategory == "True":
-			copyOther(ignoredAttributes)
-	if updateOtherChoice == 1:
-		updateOther()
+	if otherFolder != "":
+		for oc in otherChoices:
+			otherChoice = currProfileOtherDirs[oc-1]
+			systemName = otherChoice.split("(")[0].strip()
+			otherCategory = getOtherCategory()
+			if otherCategory == "True":
+				copyOther(ignoredAttributes)
+	if updateFromDeviceFolder != "":
+		if updateOtherChoice == 1:
+			updateOther()
+	if logFolder != "":
+		print("\nReview the log files for more information on what files were excanged between the main drive and "+deviceName+".")
 
-def fixNamesAndGenerateMergeDict(verbose = False):
+def createDeviceProfile():
+	global deviceName
+	global deviceProfile
+
+	deviceName = ""
+	while deviceName == "":
+		print("(1/4) What would you like to name this profile?")
+		deviceName = input().strip()
+	deviceProfile = path.join(profilesFolder, deviceName+".txt")
+	dpFile = open(deviceProfile, "w")
+	dpFile.writelines(": Romsets\n")
+	print("\n(2/4) Please define how each romset should be copied to this device.")
+	for d in systemDirs:
+		copyType = makeChoice(d, ["Full (copy all contents)",
+			"1G1R (copy only the most significant rom for each game)",
+			"1G1R Primary (same as 1G1R, but ignore games that do not have a rom for a primary region (explained in question 4)"
+			"None (skip this system)"])
+		if copyType == 1:
+			copyType = "Full"
+		elif copyType == 2:
+			copyType = "1G1R"
+		else:
+			copyType = "None"
+		dpFile.writelines(d+"\n"+copyType+"\n")
+	if otherFolder != "":
+		dpFile.writelines("\n\n\n: Other\n")
+		print("\nPlease define whether or not each folder in the Other category should be copied to this device.")
+		for d in otherDirs:
+			copyType = makeChoice(d, ["Yes", "No"])
+			if copyType == 1:
+				copyType = "True"
+			else:
+				copyType = "False"
+			dpFile.writelines(d+"\n"+copyType+"\n")
+	else:
+		print("\n(2/4) [You do not have an Other folder. Skipping this question.")
+	dpFile.writelines("\n\n\n: Ignore\n")
+	print("\n(3/4) Please type the exact names of any folders you would like to skip in copying. Remember that subfolders generated by this program are included in brackets [].")
+	print("For example, if you wanted to skip all Japanese roms, you would type [Japan] (including the brackets), followed by Enter.")
+	print("Type DONE (in all caps) followed by Enter when you are done.")
+	print("Common subfolders are [USA], [Europe], [Japan], [Other (English)], [Other (non-English)],")
+	print("[Unlicensed], [Unreleased], [Compilation] (only for 2/3/4 in 1 GBA games), [NES & Famicom] (only for GBA ports of NES/Famicom games), and [GBA Video]")
+	while True:
+		currChoice = input().strip()
+		if currChoice == "DONE":
+			break
+		if currChoice != "":
+			dpFile.writelines(currChoice+"\n")
+	dpFile.writelines("\n\n\n: Primary Regions\n")
+	print("\n(4/4) Please type the exact names of any folders you would like to prioritize in copying. Remember that subfolders generated by this program are included in brackets [].")
+	print("These folders will not be created in romset organization; instead, their contents are added to the root folder of the current system.")
+	print("For example, if you wanted all USA roms in the root folder instead of a [USA] subfolder, you would type [USA] (including the brackets), followed by Enter.")
+	print("Type DONE (in all caps) followed by Enter when you are done.")
+	print("Common subfolders are [USA], [Europe], [Japan], [Other (English)], and [Other (non-English)]")
+	while True:
+		currChoice = input().strip()
+		if currChoice == "DONE":
+			break
+		if currChoice != "":
+			dpFile.writelines(currChoice+"\n")
+	dpFile.close()
+	print("\nDevice Profile saved as "+deviceProfile+".")
+	sleep(2)
+
+def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 	global mergeDict
-	global systemFolder
-	global xmdb
 
-	mergedRoms = []
+	print("\nScanning romset for "+systemName)
 	mergedClones = []
 	unmergedClones = []
-	skipAll = False
+	skipAll = not allowInterruptions
 	mergeDict = {}
-	# contentsFile = path.join(textLogsFolder, "[Contents].txt")
 	allFiles = [f for f in listdir(systemFolder) if path.isfile(path.join(systemFolder, f))]
 	tree = ET.parse(xmdb)
 	root = tree.getroot()
@@ -166,19 +261,16 @@ def fixNamesAndGenerateMergeDict(verbose = False):
 		allClonesLower = [clone.lower() for clone in allClones]
 		for file in allFiles:
 			# if the file exists, but the capitalization is wrong (example: "Sega" instead of "SEGA"), fix it
-			fixedCap = False
 			for i in range(len(allClones)):
 				fileExt = path.splitext(file)[1]
-				if file.lower() == allClonesLower[i] and file != allClones[i]+fileExt:
+				if file.lower() == allClonesLower[i]+fileExt and file != allClones[i]+fileExt:
 					currFilePath = path.join(systemFolder, file)
 					newFilePath = path.join(systemFolder, allClones[i]+fileExt)
 					print("Capitalization fix:")
-					renameArchiveAndContent(currFilePath, newFilePath, allClones[i])
-					fixedCap = True
-					break
-			# is breaking out here necessary/ideal?
-			if fixedCap:
-				break
+					if zipfile.is_zipfile(currFilePath):
+						renameArchiveAndContent(currFilePath, newFilePath, allClones[i])
+					else:
+						rename(currFilePath, newFilePath)
 		mergeRegionIndex, mergeName = getBestMergeName(allBiases, allZones)
 		gameCurrLocation = getGameLocation(mergeName)
 		if gameCurrLocation is not None:
@@ -219,22 +311,23 @@ def fixNamesAndGenerateMergeDict(verbose = False):
 							skipAll = True
 						else:
 							currWrongName = recommendations[cwn-1]
-						if (len(currWrongName) <= 4 or not "." in currWrongName[-4:]) and currWrongName != "SKIP":
+						if path.splitext(currWrongName)[1] == "" and currWrongName != "SKIP":
 							currWrongName = currWrongName + ".zip"
 						currWrongClone = path.join(systemFolder, currWrongName)
 				if currWrongName == "SKIP":
 					print()
 				elif path.isfile(currWrongClone):
+					currCloneFile = path.splitext(currCloneFile)[0]+path.splitext(currWrongClone)[1]
+					currCloneNameWithExt = path.basename(currCloneFile)
 					if zipfile.is_zipfile(currWrongClone):
 						renameArchiveAndContent(currWrongClone, currCloneFile, currCloneName)
 					else:
-						rename(currWrongClone, path.splitext(currCloneFile)[0]+path.splitext(currWrongClone)[1])
+						rename(currWrongClone, currCloneFile)
 					cloneExists = True
 				else:
 					print("\nInvalid name. Skipping.")
 			if cloneExists:
 				addGameFileLocationToDict((mergeName, mergeRegionIndex), currCloneNameWithExt)
-				mergedRoms.append(currCloneNameWithExt)
 				mergedClones.append(currCloneName)
 			else:
 				unmergedClones.append(currCloneName)
@@ -243,14 +336,13 @@ def fixNamesAndGenerateMergeDict(verbose = False):
 		numCurrZoned += 1
 		if numCurrZoned % step == 0:
 			print(str(round(numCurrZoned*100/numZoneds, 1))+"% - Scanned "+str(numCurrZoned)+" of "+str(numZoneds)+".")
-	# print("\nDICTIONARY:\n")
-	# print(mergeDict)
 	print("Finished scanning romset.")
+	if logFolder != "":
+		print("Creating romset log.")
+		createRomsetLog(mergedClones, unmergedClones)
+		print("Done.")
 
-def getRomsetCategory():
-	global systemName
-	global deviceProfile
-
+def getRomsetCategory(currSystemName):
 	profile = open(deviceProfile,"r")
 	lines = profile.readlines()
 	inCategory = False
@@ -259,14 +351,11 @@ def getRomsetCategory():
 			if lines[i].startswith(": Romsets"):
 				inCategory = True
 			continue
-		if lines[i].strip() == systemName:
+		if lines[i].strip() == currSystemName:
 			return lines[i+1].strip()
 	return "None"
 
 def getOtherCategory():
-	global systemName
-	global deviceProfile
-
 	profile = open(deviceProfile,"r")
 	lines = profile.readlines()
 	inCategory = False
@@ -280,9 +369,6 @@ def getOtherCategory():
 	return "False"
 
 def getIgnoredAttributes():
-	global systemName
-	global deviceProfile
-
 	profile = open(deviceProfile,"r")
 	lines = profile.readlines()
 	inCategory = False
@@ -300,9 +386,6 @@ def getIgnoredAttributes():
 	return ignoredAttributes
 
 def getPrimaryRegions():
-	global systemName
-	global deviceProfile
-
 	profile = open(deviceProfile,"r")
 	lines = profile.readlines()
 	inCategory = False
@@ -320,15 +403,12 @@ def getPrimaryRegions():
 	return primaryRegions
 
 def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
-	global systemName
-	global systemFolder
-	global mergeDict
-
-	if romsetCategory not in ["Full", "1G1R"]:
+	if romsetCategory not in ["Full", "1G1R", "1G1R Primary"]:
 		return
 	print("\nCopying romset for "+systemName+".")
+	newRomsetFiles = []
 	numGames = len(mergeDict.keys())
-	step = numGames // 20
+	step = (numGames // 20) + 1
 	currGameNum = 0
 	numNewFilesInOutput = 0
 	for gameNameAndRegionNum in mergeDict.keys():
@@ -368,8 +448,8 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 				if not path.isfile(newFile):
 					createDir(newDir)
 					shutil.copy(oldFile, newFile)
-					numNewFilesInOutput += 1
-		else:
+					newRomsetFiles.append(rom)
+		elif romsetCategory == "1G1R" or gameRegion == "":
 			oldFile = path.join(systemFolder, bestRom)
 			newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
 			newDirPathArray = getPathArray(newDir)
@@ -379,23 +459,25 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 			if not path.isfile(newFile):
 				createDir(newDir)
 				shutil.copy(oldFile, newFile)
-				numNewFilesInOutput += 1
+				newRomsetFiles.append(bestRom)
 		currGameNum += 1
 		if currGameNum%step == 0:
 			print(str(round(currGameNum*100.0/numGames, 1))+"% - Confirmed "+str(currGameNum)+" of "+str(numGames)+" game folders.")
-	print("\nCopied "+str(numNewFilesInOutput)+" new files.")
+	print("\nCopied "+str(len(newRomsetFiles))+" new files.")
 	print("Finished copying romset.")
+	if logFolder != "":
+		print("Generating New Romset log.")
+		createNewRomsetLog(newRomsetFiles)
+		print("Done.")
 
 def copyOther(ignoredAttributes):
-	global systemName
-
 	print("\nCopying Other folder for "+systemName+".")
+	newOtherFiles = []
 	numFiles = 0
-	numNewFilesInOutput = 0
 	for root, dirs, files in walk(path.join(otherFolder, systemName)):
 		for file in files:
 			numFiles += 1
-	step = numFiles // 20
+	step = (numFiles // 20) + 1
 	currFileNum = 0
 	sourceSystemOtherDir = path.join(otherFolder, systemName)
 	for root, dirs, files in walk(sourceSystemOtherDir):
@@ -409,20 +491,22 @@ def copyOther(ignoredAttributes):
 			if not path.isfile(newFile):
 				createDir(newFileDir)
 				oldFile = path.join(root, fileName)
-				numNewFilesInOutput += 1
 				shutil.copy(oldFile, newFile)
+				newOtherFiles.append(newFile)
 			currFileNum += 1
 			if currFileNum%step == 0:
 				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Copied "+str(currFileNum)+" of "+str(numFiles)+".")
-	print("\nCopied "+str(numNewFilesInOutput)+" new files.")
+	print("\nCopied "+str(len(newOtherFiles))+" new files.")
 	print("Finished copying Other folder.")
+	if logFolder != "":
+		print("Generating New Other log.")
+		createNewFromOtherLog(newOtherFiles)
+		print("Done.")
 
 def updateOther():
-	global outputFolder
-	global deviceName
-
-	print("\nUpdating Other folder from "+deviceName+".")
-	numNewFilesInOther = 0
+	updateFolderName = path.basename(updateFromDeviceFolder)
+	print("\nUpdating "+updateFolderName+" folder from "+deviceName+".")
+	newFilesInOther = []
 	for root, dirs, files in walk(outputFolder):
 		currRoot = root.split(outputFolder)[1][1:]
 		try:
@@ -433,15 +517,21 @@ def updateOther():
 			fileInOutput = path.join(root, file)
 			fileInRomset = path.join(romsetFolder, currSystem, file)
 			fileInOther = path.join(otherFolder, currRoot, file)
-			if not (path.isfile(fileInRomset) or path.isfile(fileInOther)):
-				createDir(path.join(otherFolder, currRoot))
-				shutil.copy(fileInOutput, fileInOther)
-				print("From "+deviceName+" to Other: "+fileInOther)
-				numNewFilesInOther += 1
-	print("\nSuccessfully updated Other folder with "+str(numNewFilesInOther)+" new files.")
-	print("\nRemoving empty folders from Other...")
-	removeEmptyFolders(otherFolder, True)
+			updateFolder = path.join(updateFromDeviceFolder, currRoot)
+			fileInUpdate = path.join(updateFolder, file)
+			if not (path.isfile(fileInRomset) or path.isfile(fileInOther) or path.isfile(fileInUpdate)):
+				createDir(updateFolder)
+				shutil.copy(fileInOutput, fileInUpdate)
+				print("From "+deviceName+" to "+updateFolderName+": "+fileInUpdate)
+				newFilesInOther.append(fileInUpdate)
+	print("\nSuccessfully updated "+updateFolderName+" folder with "+str(len(newFilesInOther))+" new files.")
+	print("\nRemoving empty folders from "+updateFolderName+"...")
+	removeEmptyFolders(updateFromDeviceFolder, True)
 	print("Done.")
+	if logFolder != "":
+		print("Generating New Files In "+updateFolderName+" log.")
+		createNewInOtherLog(newFilesInOther)
+		print("Done.")
 
 # -------------- #
 # Helper methods #
@@ -468,7 +558,7 @@ def renameArchiveAndContent(currPath, newPath, newName):
 		with zipfile.ZipFile(newPath, 'w', zipfile.ZIP_DEFLATED) as newZip:
 			newZip.write(newFullFileName, arcname='\\'+newName+fileExt)
 		remove(newFullFileName)
-	print("Renamed "+path.splitext(path.basename(currPath))[0]+" to "+newName+"\n")
+		print("Renamed "+path.splitext(path.basename(currPath))[0]+" to "+newName+"\n")
 
 def getBestMergeName(biases, zones, indexOnly=False):
 	zoneValues = []
@@ -644,6 +734,50 @@ def getBestRom(clones):
 			bestScore = currScore
 			finalZone = zone
 	return sortedClones[finalZone]
+
+def createRomsetLog(mergedClones, unmergedClones):
+	mergedClones.sort()
+	unmergedClones.sort()
+	romsetLogFile = open(path.join(logFolder, "Log - Romset - "+systemName+".txt"), "w", encoding="utf-8", errors="replace")
+	romsetLogFile.writelines("=== "+systemName+" ===\n")
+	numMergedClones = len(mergedClones)
+	numUnmergedClones = len(unmergedClones)
+	romsetLogFile.writelines("=== This romset contains "+str(numMergedClones)+" of "+str(numMergedClones+numUnmergedClones)+" known ROMs ===\n\n")
+	romsetLogFile.writelines("= CONTAINS =\n")
+	for clone in mergedClones:
+		romsetLogFile.writelines(clone+"\n")
+	if len(unmergedClones) > 0:
+		romsetLogFile.writelines("\n= MISSING =\n")
+		for clone in unmergedClones:
+			romsetLogFile.writelines(clone+"\n")
+	romsetLogFile.close()
+
+def createNewRomsetLog(newOtherFiles):
+	if len(newOtherFiles) > 0:
+		newOtherFiles.sort()
+		romsetLogFile = open(path.join(logFolder, "Log - Romset (to "+deviceName+") - "+systemName+".txt"), "w", encoding="utf-8", errors="replace")
+		romsetLogFile.writelines("= Copied "+str(len(newOtherFiles))+" new ROMs from "+systemName+" to "+deviceName+" ===\n\n")
+		for file in newOtherFiles:
+			romsetLogFile.writelines(file+"\n")
+		romsetLogFile.close()
+
+def createNewFromOtherLog(newOtherFiles):
+	if len(newOtherFiles) > 0:
+		newOtherFiles.sort()
+		otherLogFile = open(path.join(logFolder, "Log - Other (to "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
+		otherLogFile.writelines("= Copied "+str(len(newOtherFiles))+" new files from Other to "+deviceName+" ===\n\n")
+		for file in newOtherFiles:
+			otherLogFile.writelines(file+"\n")
+		otherLogFile.close()
+
+def createNewInOtherLog(newFilesInOther):
+	if len(newFilesInOther):
+		newFilesInOther.sort()
+		otherLogFile = open(path.join(logFolder, "Log - Other (from "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
+		otherLogFile.writelines("= Copied "+str(len(newFilesInOther))+" new files from "+deviceName+" to Other ===\n\n")
+		for file in newFilesInOther:
+			otherLogFile.writelines(file+"\n")
+		otherLogFile.close()
 
 if __name__ == '__main__':
 	main()
