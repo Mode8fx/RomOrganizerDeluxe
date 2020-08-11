@@ -1,6 +1,6 @@
 # Rom Organizer Deluxe
  
-This is a program that uses [No-Intro database files](https://datomatic.no-intro.org/) to create an organized copy of a local romset. The intent is to keep an unorganized rom collection on one drive, while using it to create curated sets for each of your individual devices with minimal work required for upkeep. You can create a profile for each of your individual devices indicating what should/shouldn't be copied so you don't have to remember your preferences every time. Running time is also kept low in upkeep since files that already exist on the target drive aren't re-copied.
+This is a program that uses [No-Intro database files](https://datomatic.no-intro.org/) to create an organized copy of a local romset. The intent is to keep an unorganized rom collection on one drive, while using this program to create curated sets for each of your individual devices with minimal work required for upkeep. You can create a profile for each device indicating what should/shouldn't be copied so you don't have to remember your preferences every time. Running time is also low in upkeep since files that already exist on the target drive aren't re-copied.
 
 <img src="https://github.com/GateGuy/RomOrganizerDeluxe/blob/master/screenshot.png?raw=true" width="434" height="499" />
 
@@ -12,8 +12,14 @@ Finally, while the program is doing all this, it will create logs that track wha
 
 I made this program for my own personal use, so some parts of it may not be completely user-friendly. But feel free to use it if you want; it won't break anything (your ROMs are only copied, not moved/deleted, and roms are only renamed according to No-Intro naming conventions). Just make sure you change the input/output paths in the settings file.
 
-### Example Output
+### Device Profile
+You can create a device profile that saves settings for that device's curated rom collection. The settings are:
+- Which romsets should be copied in Full, 1G1R, 1G1R Primary, or None
+- Which folders from your secondary folder should be copied
+- Which folders should not be copied (for example, you can ignore any file that was originally in a [Homebrew] folder, or skip any roms in the [Japan] region)
+- Which regions are set as primary (any roms from these regions will be saved in the root directory instead of a separate region folder)
 
+### Example Output
 For example, your local romset containing:
 ```
 D:/Roms/Sega - Sega Genesis/My Game 1 (USA).zip
@@ -35,3 +41,6 @@ F:/Roms/Sega - Sega Genesis/Europe/My Game 2/My Game 2 (Europe).zip
 F:/Roms/Sega - Sega Genesis/Europe/My Game 2/My Game 2 (Japan).zip
 ```
 All versions of My Game 1 are stored in the USA folder since a USA version exists, while all versions of My Game 2 are stored in the Europe folder because a USA version does not exist, but a European version (another English region) does. USA roms are always prioritized, followed by Europe, then other English-speaking regions (and any region where the current rom happens to be in English), then Japan, then everything else.
+
+### Disclaimer
+This is not a rom downloader, nor does it include any information on where to obtain roms. You are responsible for legally obtaining your own roms for use with this program.
