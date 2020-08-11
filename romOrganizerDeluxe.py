@@ -148,14 +148,14 @@ def main():
 		elif len(currProfileSystemDirs)+1 in systemChoices:
 			systemChoices = list(range(1, len(currProfileSystemDirs)+1))
 	if otherFolder != "":
-		updateFolderName = path.basename(otherFolder)
-		currProfileOtherDirs = [d for d in otherDirs if getRomsetCategory(d) == "True"]
+		otherFolderName = path.basename(otherFolder)
+		currProfileOtherDirs = [d for d in otherDirs if getOtherCategory(d) == "True"]
 		if len(currProfileSystemDirs) == 0:
 			if len(otherDirs) > 0:
-				print("The current profile does not allow any "+updateFolderName+" folders.")
+				print("The current profile does not allow any "+otherFolderName+" folders.")
 			otherChoices = []
 		else:
-			otherChoices = makeChoice("Select system(s) from "+updateFolderName+" folder. You can select multiple choices by separating them with spaces:", currProfileOtherDirs+["All", "None"], allowMultiple=True)
+			otherChoices = makeChoice("Select system(s) from "+otherFolderName+" folder. You can select multiple choices by separating them with spaces:", currProfileOtherDirs+["All", "None"], allowMultiple=True)
 			if len(currProfileOtherDirs)+2 in otherChoices:
 				otherChoices = []
 			elif len(currProfileOtherDirs)+1 in otherChoices:
