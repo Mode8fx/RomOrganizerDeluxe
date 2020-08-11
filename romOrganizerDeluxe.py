@@ -290,7 +290,7 @@ def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 	tree = ET.parse(xmdb)
 	root = tree.getroot()
 	numZoneds = len(root[0][1])
-	step = (numZoneds // 20) + 1
+	step = max(numZoneds//20, 1)
 	numCurrZoned = 0
 	for currZoned in root[0][1]:
 		allBiases = [bias.get("name") for bias in currZoned.findall("bias")]
@@ -449,8 +449,9 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 		return
 	print("\nCopying romset for "+systemName+".")
 	newRomsetFiles = []
+	failedRomsetFiles = []
 	numGames = len(mergeDict.keys())
-	step = (numGames // 20) + 1
+	step = max(numGames//20, 1)
 	currGameNum = 0
 	numNewFilesInOutput = 0
 	for gameNameAndRegionNum in mergeDict.keys():
@@ -489,8 +490,12 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 				newFile = path.join(newDir, rom)
 				if not path.isfile(newFile):
 					createDir(newDir)
-					shutil.copy(oldFile, newFile)
-					newRomsetFiles.append(rom)
+					try:
+						shutil.copy(oldFile, newFile)
+						newRomsetFiles.append(rom)
+					except:
+						print("The following rom failed to copy: "+rom)
+						failedRomsetFiles.append(rom)
 		elif romsetCategory == "1G1R" or gameRegion == "":
 			oldFile = path.join(systemFolder, bestRom)
 			newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
@@ -500,8 +505,12 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 			newFile = path.join(newDir, bestRom)
 			if not path.isfile(newFile):
 				createDir(newDir)
-				shutil.copy(oldFile, newFile)
-				newRomsetFiles.append(bestRom)
+				try:
+					shutil.copy(oldFile, newFile)
+					newRomsetFiles.append(bestRom)
+				except:
+					print("The following rom failed to copy: "+bestRom)
+					failedRomsetFiles.append(bestRom)
 		currGameNum += 1
 		if currGameNum%step == 0:
 			print(str(round(currGameNum*100.0/numGames, 1))+"% - Confirmed "+str(currGameNum)+" of "+str(numGames)+" game folders.")
@@ -509,17 +518,18 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 	print("Finished copying romset.")
 	if logFolder != "":
 		print("Generating New Romset log.")
-		createNewRomsetLog(newRomsetFiles)
+		createNewRomsetLog(newRomsetFiles, failedRomsetFiles)
 		print("Done.")
 
 def copyOther(ignoredAttributes):
 	print("\nCopying Other folder for "+systemName+".")
 	newOtherFiles = []
+	failedOtherFiles = []
 	numFiles = 0
 	for root, dirs, files in walk(path.join(otherFolder, systemName)):
 		for file in files:
 			numFiles += 1
-	step = (numFiles // 20) + 1
+	step = max(numFiles//20, 1)
 	currFileNum = 0
 	sourceSystemOtherDir = path.join(otherFolder, systemName)
 	for root, dirs, files in walk(sourceSystemOtherDir):
@@ -533,8 +543,12 @@ def copyOther(ignoredAttributes):
 			if not path.isfile(newFile):
 				createDir(newFileDir)
 				oldFile = path.join(root, fileName)
-				shutil.copy(oldFile, newFile)
-				newOtherFiles.append(newFile)
+				try:
+					shutil.copy(oldFile, newFile)
+					newOtherFiles.append(newFile)
+				except:
+					print("The following file failed to copy: "+oldFile)
+					failedOtherFiles.append(oldFile)
 			currFileNum += 1
 			if currFileNum%step == 0:
 				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Copied "+str(currFileNum)+" of "+str(numFiles)+".")
@@ -542,7 +556,7 @@ def copyOther(ignoredAttributes):
 	print("Finished copying Other folder.")
 	if logFolder != "":
 		print("Generating New Other log.")
-		createNewFromOtherLog(newOtherFiles)
+		createNewFromOtherLog(newOtherFiles, failedOtherFiles)
 		print("Done.")
 
 def updateOther():
@@ -563,16 +577,20 @@ def updateOther():
 			fileInUpdate = path.join(updateFolder, file)
 			if not (path.isfile(fileInRomset) or path.isfile(fileInOther) or path.isfile(fileInUpdate)):
 				createDir(updateFolder)
-				shutil.copy(fileInOutput, fileInUpdate)
-				print("From "+deviceName+" to "+updateFolderName+": "+fileInUpdate)
-				newFilesInOther.append(fileInUpdate)
+				try:
+					shutil.copy(fileInOutput, fileInUpdate)
+					print("From "+deviceName+" to "+updateFolderName+": "+fileInUpdate)
+					newFilesInOther.append(fileInUpdate)
+				except:
+					print("The following file failed to copy: "+fileInOutput)
+					failedOtherFiles.append(fileInOutput)
 	print("\nSuccessfully updated "+updateFolderName+" folder with "+str(len(newFilesInOther))+" new files.")
 	print("\nRemoving empty folders from "+updateFolderName+"...")
 	removeEmptyFolders(updateFromDeviceFolder, True)
 	print("Done.")
 	if logFolder != "":
 		print("Generating New Files In "+updateFolderName+" log.")
-		createNewInOtherLog(newFilesInOther)
+		createNewInOtherLog(newFilesInOther, failedOtherFiles)
 		print("Done.")
 
 # -------------- #
@@ -794,33 +812,46 @@ def createRomsetLog(mergedClones, unmergedClones):
 			romsetLogFile.writelines(clone+"\n")
 	romsetLogFile.close()
 
-def createNewRomsetLog(newOtherFiles):
+def createNewRomsetLog(newOtherFiles, failedRomsetFiles):
 	if len(newOtherFiles) > 0:
 		newOtherFiles.sort()
+		failedRomsetFiles.sort()
 		romsetLogFile = open(path.join(logFolder, "Log - Romset (to "+deviceName+") - "+systemName+".txt"), "w", encoding="utf-8", errors="replace")
-		romsetLogFile.writelines("= Copied "+str(len(newOtherFiles))+" new ROMs from "+systemName+" to "+deviceName+" ===\n\n")
+		romsetLogFile.writelines("=== Copied "+str(len(newOtherFiles))+" new ROMs from "+systemName+" to "+deviceName+" ===\n\n")
 		for file in newOtherFiles:
 			romsetLogFile.writelines(file+"\n")
+		if len(failedRomsetFiles) > 0:
+			romsetLogFile.writelines("\n= FAILED TO COPY =\n")
+			for file in failedRomsetFiles:
+				romsetLogFile.writelines(file+"\n")
 		romsetLogFile.close()
 
-def createNewFromOtherLog(newOtherFiles):
+def createNewFromOtherLog(newOtherFiles, failedOtherFiles):
 	updateFolderName = path.basename(updateFromDeviceFolder)
 	if len(newOtherFiles) > 0:
 		newOtherFiles.sort()
 		otherLogFile = open(path.join(logFolder, "Log - "+updateFolderName+" (to "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
-		otherLogFile.writelines("= Copied "+str(len(newOtherFiles))+" new files from "+updateFolderName+" to "+deviceName+" ===\n\n")
+		otherLogFile.writelines("=== Copied "+str(len(newOtherFiles))+" new files from "+updateFolderName+" to "+deviceName+" ===\n\n")
 		for file in newOtherFiles:
 			otherLogFile.writelines(file+"\n")
+		if len(failedOtherFiles) > 0:
+			otherLogFile.writelines("\n= FAILED TO COPY =\n")
+			for file in failedOtherFiles:
+				otherLogFile.writelines(file+"\n")
 		otherLogFile.close()
 
-def createNewInOtherLog(newFilesInOther):
+def createNewInOtherLog(newFilesInOther, failedOtherFiles):
 	updateFolderName = path.basename(updateFromDeviceFolder)
 	if len(newFilesInOther):
 		newFilesInOther.sort()
 		otherLogFile = open(path.join(logFolder, "Log - "+updateFolderName+" (from "+deviceName+").txt"), "w", encoding="utf-8", errors="replace")
-		otherLogFile.writelines("= Copied "+str(len(newFilesInOther))+" new files from "+deviceName+" to "+updateFolderName+" ===\n\n")
+		otherLogFile.writelines("=== Copied "+str(len(newFilesInOther))+" new files from "+deviceName+" to "+updateFolderName+" ===\n\n")
 		for file in newFilesInOther:
 			otherLogFile.writelines(file+"\n")
+		if len(failedOtherFiles) > 0:
+			otherLogFile.writelines("\n= FAILED TO COPY =\n")
+			for file in failedOtherFiles:
+				otherLogFile.writelines(file+"\n")
 		otherLogFile.close()
 
 if __name__ == '__main__':
