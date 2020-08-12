@@ -511,6 +511,8 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 				except:
 					print("The following rom failed to copy: "+bestRom)
 					failedRomsetFiles.append(bestRom)
+					if listdir(newDir) == 0:
+						rmdir(newDir)
 		currGameNum += 1
 		if currGameNum%step == 0:
 			print(str(round(currGameNum*100.0/numGames, 1))+"% - Confirmed "+str(currGameNum)+" of "+str(numGames)+" game folders.")
@@ -549,6 +551,8 @@ def copyOther(ignoredAttributes):
 				except:
 					print("The following file failed to copy: "+oldFile)
 					failedOtherFiles.append(oldFile)
+					if listdir(newFileDir) == 0:
+						rmdir(newFileDir)
 			currFileNum += 1
 			if currFileNum%step == 0:
 				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Copied "+str(currFileNum)+" of "+str(numFiles)+".")
@@ -563,6 +567,7 @@ def updateOther():
 	updateFolderName = path.basename(updateFromDeviceFolder)
 	print("\nUpdating "+updateFolderName+" folder from "+deviceName+".")
 	newFilesInOther = []
+	failedOtherFiles = []
 	for root, dirs, files in walk(outputFolder):
 		currRoot = root.split(outputFolder)[1][1:]
 		try:
