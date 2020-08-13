@@ -34,7 +34,8 @@ def rebuildSettingsFile():
 \n... or a joined path:\
 \nromsetFolder = path.join(\"D:\\\\\", \"My Files\", \"Romsets\")\
 \n\
-\ndriveLetter is the drive where this program is stored (example: \"C:\\\\\")\
+\ndriveLetter is the drive where this program is stored (example: \"C:\\\\\"),\
+\nand mainFolder is the directory where this program is stored\
 \n\"\"\"\
 \n\
 \n# The folder when your current romsets are stored.\
@@ -46,17 +47,23 @@ def rebuildSettingsFile():
 \n\
 \n# The folder that will be updated with new files from your target device's rom folder.\
 \n# You can set this to be the same as romsetFolder (not recommended) or otherFolder if you'd like.\
-\n# If you don't want to copy new files from your device to your main drive, leave this as \"\"\
+\n# If you don't want to copy new files from your device to your main drive,\
+\n# set updateFromDeviceFolder = \"\"\
 \nupdateFromDeviceFolder = path.join(driveLetter, \"Roms\", \"Copy To Other\")\
 \n\
-\n# The folder containing your XMDB files.\
-\nxmdbDir = path.join(mainFolder, \"No-Intro Database\")\
+\n# The folder containing your No-Intro XMDB files.\
+\n# Similar database formats (like XML) will probably work, but these are untested.\
+\nnoIntroDir = path.join(mainFolder, \"No-Intro Database\")\
+\n\
+\n# The folder containing your Redump DAT files.\
+\n# Similar database formats (like XML) will probably work, but these are untested.\
+\nredumpDir = path.join(mainFolder, \"Redump Database\")\
 \n\
 \n# The folder containing profiles for each device (these tell the program which merged/1G1R sets to generate).\
 \nprofilesFolder = path.join(mainFolder, \"Romset Profiles\")\
 \n\
 \n# The folder containing generated log files.\
-\n# If you don't want to generate log files, leave this as \"\"\
+\n# If you don't want to generate log files, set logFolder = \"\"\
 \nlogFolder = path.join(mainFolder, \"Logs\")\
 \n""")
 	settingsFile.close()

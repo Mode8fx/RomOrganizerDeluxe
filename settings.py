@@ -22,7 +22,8 @@ romsetFolder = "D:\\My Files\\Romsets"
 ... or a joined path:
 romsetFolder = path.join("D:\\", "My Files", "Romsets")
 
-driveLetter is the drive where this program is stored (example: "C:\\")
+driveLetter is the drive where this program is stored (example: "C:\\"),
+and mainFolder is the directory where this program is stored
 """
 
 # The folder when your current romsets are stored.
@@ -34,15 +35,21 @@ otherFolder = path.join(driveLetter, "Roms", "Other")
 
 # The folder that will be updated with new files from your target device's rom folder.
 # You can set this to be the same as romsetFolder (not recommended) or otherFolder if you'd like.
-# If you don't want to copy new files from your device to your main drive, leave this as ""
+# If you don't want to copy new files from your device to your main drive,
+# set updateFromDeviceFolder = ""
 updateFromDeviceFolder = path.join(driveLetter, "Roms", "Copy To Other")
 
-# The folder containing your XMDB files.
-xmdbDir = path.join(mainFolder, "No-Intro Database")
+# The folder containing your No-Intro XMDB files.
+# Similar database formats (like XML) will probably work, but these are untested.
+noIntroDir = path.join(mainFolder, "No-Intro Database")
+
+# The folder containing your Redump DAT files.
+# Similar database formats (like XML) will probably work, but these are untested.
+redumpDir = path.join(mainFolder, "Redump Database")
 
 # The folder containing profiles for each device (these tell the program which merged/1G1R sets to generate).
 profilesFolder = path.join(mainFolder, "Romset Profiles")
 
 # The folder containing generated log files.
-# If you don't want to generate log files, leave this as ""
+# If you don't want to generate log files, set logFolder = ""
 logFolder = path.join(mainFolder, "Logs")

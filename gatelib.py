@@ -165,6 +165,13 @@ def createDir(p):
 		if not path.isdir(currPath):
 			mkdir(currPath)
 
+def mergeNestedArray(arr, finalArr=[]):
+	for val in arr:
+		if not isinstance(val, list):
+			finalArr.append(val)
+		else:
+			finalArr = mergeNestedArray(val, finalArr)
+	return finalArr
 
 
 """

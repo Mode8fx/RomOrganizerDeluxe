@@ -26,6 +26,7 @@ except:
 	print("Created new settings file as settings.py. Edit settings.py with your own directories.")
 	input("Press Enter to exit.")
 	sys.exit()
+
 from gatelib import makeChoice, arrayOverlap, getPathArray, createDir, removeEmptyFolders
 
 # User settings
@@ -106,6 +107,35 @@ zoneBiasValues = {
 	"Pl" : 25
 }
 
+zoneNumToZone = {
+	0 : "U",
+	# 1 : "",
+	2 : "E",
+	3 : "A",
+	4 : "Ca",
+	5 : "J",
+	6 : "F",
+	7 : "G",
+	8 : "S",
+	9 : "I",
+	10 : "No",
+	11 : "Br",
+	12 : "Sw",
+	13 : "Cn",
+	14 : "K",
+	15 : "As",
+	16 : "Ne",
+	17 : "Ru",
+	18 : "Da",
+	19 : "Nl",
+	20 : "Pt",
+	21 : "Sv",
+	22 : "No",
+	23 : "Da",
+	24 : "Fi",
+	25 : "Pl"
+}
+
 compilationArray = ["2 Games in 1 -", "2 Games in 1! -", "2 Disney Games -", "2 Great Games! -", "2 in 1 -", "2 in 1 Game Pack -", "2-in-1 Fun Pack -", "3 Games in 1 -", "4 Games on One Game Pak", "Double Game!", "Double Pack", "2 Jeux en 1", "Crash Superpack", "Spyro Superpack", "Crash & Spyro Superpack"]
 classicNESArray = ["Classic NES Series", "Famicom Mini", "Hudson Best Collection"]
 
@@ -119,7 +149,9 @@ def main():
 	global deviceProfile
 	global outputFolder
 	global systemFolder
-	global xmdb
+	global databaseFile
+	global isNoIntro
+
 	print("\n########################")
 	print("# Rom Organizer Deluxe #")
 	print("########################\n")
@@ -188,20 +220,37 @@ def main():
 		romsetCategory = getRomsetCategory(systemName)
 		if romsetCategory in ["Full", "1G1R", "1G1R Primary"]:
 			systemFolder = path.join(romsetFolder, systemName)
-			for f in listdir(xmdbDir):
-				if f.split("(")[0].strip() == systemName:
-					xmdb = path.join(xmdbDir, f)
+			systemNameLower = systemName.lower()
+			isNoIntro = True
+			databaseFile = ""
+			for f in listdir(noIntroDir):
+				passed = (f.split("(")[0].strip().lower() == systemNameLower)
+				if not passed:
+					try:
+						if "(".join(f.split("(")[:2]).strip().lower() == systemNameLower:
+							passed = True
+					except:
+						pass
+				if passed:
+					databaseFile = path.join(noIntroDir, f)
 					break
-			if xmdb == "":
-				print("XMDB for current system not found.")
-				print("Skipping current system.")
-				continue
+			if databaseFile == "":
+				for f in listdir(redumpDir):
+					if f.split(" - Datfile")[0].strip().lower() == systemNameLower:
+						databaseFile = path.join(redumpDir, f)
+						isNoIntro = False
+						break
+				if databaseFile == "":
+					print("Database file for current system not found.")
+					print("Skipping current system.")
+					continue
 			fixNamesAndGenerateMergeDict(allowInterruptions)
 			copyRomset(romsetCategory, ignoredAttributes, primaryRegions)
 	if otherFolder != "":
 		for oc in otherChoices:
 			otherChoice = currProfileOtherDirs[oc-1]
-			systemName = otherChoice.split("(")[0].strip()
+			# systemName = otherChoice.split("(")[0].strip()
+			systemName = otherChoice
 			otherCategory = getOtherCategory(systemName)
 			if otherCategory == "True":
 				copyOther(ignoredAttributes)
@@ -287,15 +336,33 @@ def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 	skipAll = not allowInterruptions
 	mergeDict = {}
 	allFiles = [f for f in listdir(systemFolder) if path.isfile(path.join(systemFolder, f))]
-	tree = ET.parse(xmdb)
+	tree = ET.parse(databaseFile)
 	root = tree.getroot()
-	numZoneds = len(root[0][1])
-	step = max(numZoneds//20, 1)
 	numCurrZoned = 0
-	for currZoned in root[0][1]:
-		allBiases = [bias.get("name") for bias in currZoned.findall("bias")]
-		allZones = [bias.get("zone") for bias in currZoned.findall("bias")]
-		allClones = [clone.get("name") for clone in currZoned.findall("clone")]
+	if isNoIntro:
+		zoneContainer = root[0][1]
+	else:
+		zoneContainer = root[1:]
+	numZoneds = len(zoneContainer)
+	step = max(numZoneds//20, 1)
+	for currZoned in zoneContainer:
+		if isNoIntro:
+			allBiases = [bias.get("name") for bias in currZoned.findall("bias")]
+			allZones = [bias.get("zone") for bias in currZoned.findall("bias")]
+			allClones = [clone.get("name") for clone in currZoned.findall("clone")]
+		else:
+			allClones = [currZoned.get("name")]
+			allBiases = [clone.split(" (")[0] for clone in allClones]
+			allZones = []
+			for clone in allClones:
+				bestZoneNum = 99
+				bestZone = ""
+				for att in getAttributeSplit(clone):
+					currZoneNum = zoneBiasValues.get(att)
+					if currZoneNum is not None and currZoneNum < bestZoneNum:
+						bestZoneNum = currZoneNum
+						bestZone = zoneNumToZone.get(bestZoneNum)
+				allZones.append(bestZone)
 		allClonesLower = [clone.lower() for clone in allClones]
 		for file in allFiles:
 			# if the file exists, but the capitalization is wrong (example: "Sega" instead of "SEGA"), fix it
@@ -640,7 +707,6 @@ def getBestMergeName(biases, zones, indexOnly=False):
 	regionIndex = 1
 	for i in range(1, len(mergeNameArray)):
 		if mergeNameArray[i] in biasPriority:
-			# mergeName = "(".join(mergeNameArray[0:i]).strip()
 			mergeName = mergeNameArray[0]
 			for j in range(1,i):
 				mergeName = mergeName + " (" + mergeNameArray[j] + ")"
@@ -648,13 +714,17 @@ def getBestMergeName(biases, zones, indexOnly=False):
 			break
 	suffix = ""
 	if len(mergeNameArray) > regionIndex:
-		suffix = getSuffix(mergeNameArray[regionIndex:])
+		suffix = getSuffix(mergeNameArray[regionIndex:], mergeName)
 	mergeName = mergeName + suffix
 	mergeName = mergeName.rstrip(".")
 	return mergeIndex, mergeName
 
-def getSuffix(attributes):
-	skippedAttributes = ["Rev", "Beta", "Virtual Console", "Proto", "Unl", "v", "SGB Enhanced", "GB Compatible", "Demo", "Promo", "Sample", "GameCube", "Promotion Card"]
+def getSuffix(attributes, mergeName):
+	skippedAttributes = [
+		"Rev", "Beta", "Virtual Console", "Proto", "Unl", "v", "SGB Enhanced",
+		"GB Compatible", "Demo", "Promo", "Sample", "GameCube",
+		"Promotion Card", "WiiWare", "Club Nintendo", "DLC"
+	]
 	for att in attributes:
 		if att in biasPriority:
 			continue
@@ -669,7 +739,8 @@ def getSuffix(attributes):
 			continue
 		if att.count("-") >= 2:
 			continue
-		return " ("+att+")"
+		if not " ("+att+")" in mergeName:
+			return " ("+att+")"
 	return ""
 
 def addGameFileLocationToDict(key, game):
@@ -744,13 +815,34 @@ def getAttributeSplit(name):
 
 def guessOldName(recommendations, ccn):
 	currCloneName = ccn.replace("&amp;", "&")
-	array1 = ["(Rev A)", "(Rev B)", "(Rev C)", "(Rev D)", "(Rev E)", "(Beta A)", "(Beta B)", "(Beta C)", "(Beta D)", "(Beta E)", "(Proto A)", "(Proto B)", "(Proto C)", "(Proto D)", "(Proto E)", "(USA, Australia)", "(USA, Europe)"]
-	array2 = ["(Rev 1)", "(Rev 2)", "(Rev 3)", "(Rev 4)", "(Rev 5)", "(Beta 1)", "(Beta 2)", "(Beta 3)", "(Beta 4)", "(Beta 5)", "(Proto 1)", "(Proto 2)", "(Proto 3)", "(Proto 4)", "(Proto 5)", "(USA)", "(USA)"]
+	replacementArr = [
+		("(Rev A)", "(Rev 1)"),
+		("(Rev B)", "(Rev 2)"),
+		("(Rev C)", "(Rev 3)"),
+		("(Rev D)", "(Rev 4)"),
+		("(Rev E)", "(Rev 5)"),
+		("(Rev F)", "(Rev 6)"),
+		("(Beta A)", "(Beta 1)"),
+		("(Beta B)", "(Beta 2)"),
+		("(Beta C)", "(Beta 3)"),
+		("(Beta D)", "(Beta 4)"),
+		("(Beta E)", "(Beta 5)"),
+		("(Beta F)", "(Beta 6)"),
+		("(Proto A)", "(Proto 1)"),
+		("(Proto B)", "(Proto 2)"),
+		("(Proto C)", "(Proto 3)"),
+		("(Proto D)", "(Proto 4)"),
+		("(Proto E)", "(Proto 5)"),
+		("(Proto F)", "(Proto 6)"),
+		("(Rev A)", "(Reprint)"),
+		("(Rev 1)", "(Reprint)"),
+		("(USA, Australia)", "(USA)"),
+		("(USA, Europe)", "(USA)"),
+	]
 	for i in range(len(recommendations)):
 		currRec = path.splitext(recommendations[i])[0].replace("&amp;", "&")
-		for j in range(len(array1)):
-			elem1 = array1[j]
-			elem2 = array2[j]
+		for j in range(len(replacementArr)):
+			elem1, elem2 = replacementArr[j]
 			if currRec.replace(elem1, elem2) == currCloneName or currRec.replace(elem2, elem1) == currCloneName:
 				return i+1
 	return 0
