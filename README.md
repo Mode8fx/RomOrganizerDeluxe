@@ -1,6 +1,6 @@
 # Rom Organizer Deluxe
  
-This is a program that uses [No-Intro database files](https://datomatic.no-intro.org/) to create an organized copy of a local romset. The intent is to keep an unorganized rom collection on one drive, while using this program to create curated sets for each of your individual devices with minimal work required for upkeep. You can create a profile for each device indicating what should/shouldn't be copied so you don't have to remember your preferences every time. Running time is also low in upkeep since files that already exist on the target drive aren't re-copied.
+This is a program that uses [No-Intro](https://datomatic.no-intro.org/) and/or [Redump](http://redump.org/) database files to create an organized copy of a local romset. The intent is to keep an unorganized rom collection on one drive, while using this program to create curated sets for each of your individual devices with minimal work required for upkeep. You can create a profile for each device indicating what should/shouldn't be copied so you don't have to remember your preferences every time. Running time is also low in upkeep since files that already exist on the target drive aren't re-copied.
 
 <img src="https://github.com/GateGuy/RomOrganizerDeluxe/blob/master/screenshot.png?raw=true" width="434" height="499" />
 
@@ -10,7 +10,7 @@ After creating a copy of your romset following the preferences you've defined, i
 
 Finally, while the program is doing all this, it will create logs that track what files are missing from your local romset as indicated by your database files, along with logs of what files were copied to/from your target drive.
 
-I made this program for my own personal use, so some parts of it may not be completely user-friendly. But feel free to use it if you want; it won't break anything (your ROMs are only copied, not moved/deleted, and roms are only renamed according to No-Intro naming conventions). Just make sure you change the input/output paths in the settings file.
+I made this program for my own personal use, so some parts of it may not be completely user-friendly. But feel free to use it if you want; it won't break anything (your ROMs are only copied, not moved or deleted, and roms are only renamed according to No-Intro/Redump naming conventions). Just make sure you change the input/output paths in the settings file.
 
 ### Device Profile
 You can create a device profile that saves settings for that device's curated rom collection. The settings are:
@@ -23,18 +23,20 @@ You can create a device profile that saves settings for that device's curated ro
 For example, your local romset containing:
 ```
 D:/Roms/Sega - Sega Genesis/My Game 1 (USA).zip
+D:/Roms/Sega - Sega Genesis/My Game 1 (USA) (Rev 1).zip
 D:/Roms/Sega - Sega Genesis/My Game 1 (Europe).zip
 D:/Roms/Sega - Sega Genesis/My Game 1 (Japan).zip
 D:/Roms/Sega - Sega Genesis/My Game 2 (Europe).zip
 D:/Roms/Sega - Sega Genesis/My Game 2 (Japan).zip
 ```
-... provided you have a database file:
+... provided you have a database file with the same name as the system (plus (optionally) anything in parentheses after the system name):
 ```
-D:/Tools/No-Intro Database/Sega - Sega Genesis.xmdb
+D:/Tools/No-Intro Database/Sega - Sega Genesis (20200102-012345).xmdb
 ```
 ... will be copied and sorted as:
 ```
 F:/Roms/Sega - Sega Genesis/USA/My Game 1/My Game 1 (USA).zip
+F:/Roms/Sega - Sega Genesis/USA/My Game 1/My Game 1 (USA) (Rev 1).zip
 F:/Roms/Sega - Sega Genesis/USA/My Game 1/My Game 1 (Europe).zip
 F:/Roms/Sega - Sega Genesis/USA/My Game 1/My Game 1 (Japan).zip
 F:/Roms/Sega - Sega Genesis/Europe/My Game 2/My Game 2 (Europe).zip
