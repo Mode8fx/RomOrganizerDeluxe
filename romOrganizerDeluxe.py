@@ -51,7 +51,13 @@ elif not path.isdir(otherFolder):
 else:
 	otherDirs = [d for d in listdir(otherFolder) if path.isdir(path.join(otherFolder, d))]
 
-biasPriority = ["World","USA","En","Europe","Australia","Canada","Japan","Ja","France","Fr","Germany","De","Spain","Es","Italy","It","Norway","Brazil","Sweden","China","Zh","Korea","Ko","Asia","Netherlands","Russia","Ru","Denmark","Nl","Pt","Sv","No","Da","Fi","Pl","Unknown"]
+biasPriority = [
+	"World", "USA", "En", "Europe", "Australia", "Canada", "Japan", "Ja",
+	"France", "Fr", "Germany", "De", "Spain", "Es", "Italy", "It", "Norway",
+	"Brazil", "Sweden", "China", "Zh", "Korea", "Ko", "Asia", "Netherlands",
+	"Russia", "Ru", "Denmark", "Nl", "Pt", "Sv", "No", "Da", "Fi", "Pl",
+	"Unknown"
+]
 zoneBiasValues = {
 	"World" : 0,
 	"U" : 0,
@@ -136,8 +142,20 @@ zoneNumToZone = {
 	25 : "Pl"
 }
 
-compilationArray = ["2 Games in 1 -", "2 Games in 1! -", "2 Disney Games -", "2 Great Games! -", "2 in 1 -", "2 in 1 Game Pack -", "2-in-1 Fun Pack -", "3 Games in 1 -", "4 Games on One Game Pak", "Double Game!", "Double Pack", "2 Jeux en 1", "Crash Superpack", "Spyro Superpack", "Crash & Spyro Superpack"]
+compilationArray = [
+	"2 Games in 1 -", "2 Games in 1! -", "2 Disney Games -", "2 Great Games! -",
+	"2 in 1 -", "2 in 1 Game Pack -", "2-in-1 Fun Pack -", "3 Games in 1 -",
+	"4 Games on One Game Pak", "Double Game!", "Double Pack", "2 Jeux en 1",
+	"Crash Superpack", "Spyro Superpack", "Crash & Spyro Superpack"
+]
 classicNESArray = ["Classic NES Series", "Famicom Mini", "Hudson Best Collection"]
+
+skippedAttributes = [
+	"Rev", "Beta", "Virtual Console", "Proto", "Unl", "v", "Switch Online",
+	"GB Compatible", "SGB Enhanced", "Demo", "Disc", "Promo", "Sample", "DLC",
+	"WiiWare", "GameCube", "Promotion Card", "Namcot Collection",
+	"Namco Museum Archives", "Club Nintendo"
+]
 
 # -------------- #
 # Main functions #
@@ -223,22 +241,22 @@ def main():
 			systemNameLower = systemName.lower()
 			isNoIntro = True
 			databaseFile = ""
-			for f in listdir(noIntroDir):
-				passed = (f.split("(")[0].strip().lower() == systemNameLower)
-				if not passed:
-					try:
-						if "(".join(f.split("(")[:2]).strip().lower() == systemNameLower:
-							passed = True
-					except:
-						pass
-				if passed:
-					databaseFile = path.join(noIntroDir, f)
+			for f in listdir(redumpDir):
+				if f.split(" - Datfile")[0].strip().lower() == systemNameLower:
+					databaseFile = path.join(redumpDir, f)
+					isNoIntro = False
 					break
 			if databaseFile == "":
-				for f in listdir(redumpDir):
-					if f.split(" - Datfile")[0].strip().lower() == systemNameLower:
-						databaseFile = path.join(redumpDir, f)
-						isNoIntro = False
+				for f in listdir(noIntroDir):
+					passed = (f.split("(")[0].strip().lower() == systemNameLower)
+					if not passed:
+						try:
+							if "(".join(f.split("(")[:2]).strip().lower() == systemNameLower:
+								passed = True
+						except:
+							pass
+					if passed:
+						databaseFile = path.join(noIntroDir, f)
 						break
 				if databaseFile == "":
 					print("Database file for current system not found.")
@@ -249,7 +267,6 @@ def main():
 	if otherFolder != "":
 		for oc in otherChoices:
 			otherChoice = currProfileOtherDirs[oc-1]
-			# systemName = otherChoice.split("(")[0].strip()
 			systemName = otherChoice
 			otherCategory = getOtherCategory(systemName)
 			if otherCategory == "True":
@@ -622,7 +639,7 @@ def copyOther(ignoredAttributes):
 						rmdir(newFileDir)
 			currFileNum += 1
 			if currFileNum%step == 0:
-				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Copied "+str(currFileNum)+" of "+str(numFiles)+".")
+				print(str(round(currFileNum*100.0/numFiles, 1))+"% - Confirmed "+str(currFileNum)+" of "+str(numFiles)+".")
 	print("\nCopied "+str(len(newOtherFiles))+" new files.")
 	print("Finished copying Other folder.")
 	if logFolder != "":
@@ -720,11 +737,6 @@ def getBestMergeName(biases, zones, indexOnly=False):
 	return mergeIndex, mergeName
 
 def getSuffix(attributes, mergeName):
-	skippedAttributes = [
-		"Rev", "Beta", "Virtual Console", "Proto", "Unl", "v", "SGB Enhanced",
-		"GB Compatible", "Demo", "Promo", "Sample", "GameCube",
-		"Promotion Card", "WiiWare", "Club Nintendo", "DLC"
-	]
 	for att in attributes:
 		if att in biasPriority:
 			continue
