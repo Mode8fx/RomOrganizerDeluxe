@@ -239,6 +239,7 @@ def main():
 		if romsetCategory in ["Full", "1G1R", "1G1R Primary"]:
 			systemFolder = path.join(romsetFolder, systemName)
 			systemNameLower = systemName.lower()
+			numParenInSN = systemNameLower.count("(")
 			isNoIntro = True
 			databaseFile = ""
 			for f in listdir(redumpDir):
@@ -251,7 +252,7 @@ def main():
 					passed = (f.split("(")[0].strip().lower() == systemNameLower)
 					if not passed:
 						try:
-							if "(".join(f.split("(")[:2]).strip().lower() == systemNameLower:
+							if "(".join(f.split("(")[:(numParenInSN+1)]).strip().lower() == systemNameLower:
 								passed = True
 						except:
 							pass
