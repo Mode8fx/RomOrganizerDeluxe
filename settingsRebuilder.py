@@ -30,16 +30,16 @@ def rebuildSettingsFile():
 \n\
 \n\"\"\"\
 \nA directory can be an absolute path (make sure you put the path in quotes and use two back-slashes to separate folders):\
-\nromsetFolder = \"D:\\\\My Files\\\\Romsets\"\
+\nromsetFolder = \"D:\\\\My Files\\\\Verified\"\
 \n... or a joined path:\
-\nromsetFolder = path.join(\"D:\\\\\", \"My Files\", \"Romsets\")\
+\nromsetFolder = path.join(\"D:\\\\\", \"My Files\", \"Verified\")\
 \n\
 \ndriveLetter is the drive where this program is stored (example: \"C:\\\\\"),\
 \nand mainFolder is the directory where this program is stored\
 \n\"\"\"\
 \n\
 \n# The folder when your current romsets are stored.\
-\nromsetFolder = path.join(driveLetter, \"Roms\", \"Romsets\")\
+\nromsetFolder = path.join(driveLetter, \"Roms\", \"Verified\")\
 \n\
 \n# The folder containing roms that aren't part of a set (rom hacks, homebrew, etc.).\
 \n# If you don't have an Other folder, leave this as \"\"\

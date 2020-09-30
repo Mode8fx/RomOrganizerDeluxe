@@ -1,3 +1,5 @@
+import sys
+import os
 from os import path, mkdir, listdir, rmdir
 
 def makeChoice(question, choices, allowMultiple=False):
@@ -11,7 +13,7 @@ def makeChoice(question, choices, allowMultiple=False):
 	print("\n"+question)
 	for i in range(numChoices):
 		print(str(i+1)+": "+choices[i])
-	cInput = input().split(" ")
+	cInput = input("\n").split(" ")
 	if not allowMultiple:
 		try:
 			assert len(cInput) == 1
@@ -173,6 +175,46 @@ def mergeNestedArray(arr, finalArr=[]):
 			finalArr = mergeNestedArray(val, finalArr)
 	return finalArr
 
+def getCurrFolder():
+	if getattr(sys, 'frozen', False):
+		mainFolder = path.dirname(sys.executable) # EXE (executable) file
+	else:
+		mainFolder = path.dirname(path.realpath(__file__)) # PY (source) file
+	sys.path.append(mainFolder)
+	return mainFolder
+
+# from https://www.geeksforgeeks.org/python-find-most-frequent-element-in-a-list/
+def most_frequent(arr): 
+    counter = 0
+    num = arr[0]
+    for i in arr:
+        curr_frequency = arr.count(i)
+        if (curr_frequency > counter):
+            counter = curr_frequency
+            num = i
+    return num, counter
+
+def clearScreen():
+	os.system('clear' if os.name =='posix' else 'cls')
+
+def getFileExt(folder, fileName):
+	for f in listdir(folder):
+		fName, fExt = path.splitext(f)
+		if fName == fileName:
+			return fExt
+	return ""
+
+def arrayInArray(arr1, arr2):
+	for i in range(len(arr2)-len(arr1)+1):
+		passed = True
+		for j in range(len(arr1)):
+			if arr1[j] != arr2[i+j]:
+				passed = False
+				break
+		if passed:
+			return True
+	return False
+
 
 """
 SOURCES
@@ -182,6 +224,9 @@ https://www.codespeedy.com/inter-convert-decimal-and-any-base-using-python/
 
 removeEmptyFolders
 https://gist.github.com/jacobtomlinson/9031697
+
+most_frequent
+https://www.geeksforgeeks.org/python-find-most-frequent-element-in-a-list/
 
 All other functions made by GateGuy
 """

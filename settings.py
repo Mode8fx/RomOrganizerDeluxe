@@ -18,16 +18,16 @@ driveLetter = path.splitdrive(mainFolder)[0]+"\\"
 
 """
 A directory can be an absolute path (make sure you put the path in quotes and use two back-slashes to separate folders):
-romsetFolder = "D:\\My Files\\Romsets"
+romsetFolder = "D:\\My Files\\Verified"
 ... or a joined path:
-romsetFolder = path.join("D:\\", "My Files", "Romsets")
+romsetFolder = path.join("D:\\", "My Files", "Verified")
 
 driveLetter is the drive where this program is stored (example: "C:\\"),
 and mainFolder is the directory where this program is stored
 """
 
 # The folder when your current romsets are stored.
-romsetFolder = path.join(driveLetter, "Roms", "Romsets")
+romsetFolder = path.join(driveLetter, "Roms", "Verified")
 
 # The folder containing roms that aren't part of a set (rom hacks, homebrew, etc.).
 # If you don't have an Other folder, leave this as ""
