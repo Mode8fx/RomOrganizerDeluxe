@@ -142,6 +142,14 @@ zoneNumToZone = {
 	25 : "Pl"
 }
 
+categoryValues = {
+	"Games" : 0,
+	"Demos" : 1,
+	"Bonus Discs" : 2,
+	"Applications" : 3,
+	"Coverdiscs" : 4
+}
+
 compilationArray = [
 	"2 Games in 1 -", "2 Games in 1! -", "2 Disney Games -", "2 Great Games! -",
 	"2 in 1 -", "2 in 1 Game Pack -", "2-in-1 Fun Pack -", "3 Games in 1 -",
@@ -170,6 +178,7 @@ def main():
 	global databaseFile
 	global isNoIntro
 
+	clearScreen()
 	print("\n########################")
 	print("# Rom Organizer Deluxe #")
 	print("########################\n")
@@ -232,6 +241,7 @@ def main():
 			isCorrect = makeChoice("Are you sure this is the correct folder?\n"+outputFolder, ["Yes", "No"])
 			if isCorrect == 2:
 				outputFolder = ""
+	clearScreen()
 	if logFolder != "":
 		createDir(logFolder)
 	for sc in systemChoices:
@@ -250,14 +260,7 @@ def main():
 					break
 			if databaseFile == "":
 				for f in listdir(noIntroDir):
-					passed = (f.split("(")[0].strip().lower() == systemNameLower)
-					if not passed:
-						try:
-							if "(".join(f.split("(")[:(numParenInSN+1)]).strip().lower() == systemNameLower:
-								passed = True
-						except:
-							pass
-					if passed:
+					if f.split(" (XMDB)")[0].replace(" (Encrypted)", "").replace(" (Decrypted)", "").replace(" (BigEndian)", "").replace(" (LittleEndian)", "").replace(" (WAD)", "").strip().lower() == systemNameLower:
 						databaseFile = path.join(noIntroDir, f)
 						break
 				if databaseFile == "":
@@ -360,6 +363,7 @@ def createDeviceProfile():
 
 def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 	global mergeDict
+	global categoryDict
 
 	print("\nScanning romset for "+systemName)
 	mergedClones = []
@@ -381,10 +385,12 @@ def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 			allBiases = [bias.get("name") for bias in currZoned.findall("bias")]
 			allZones = [bias.get("zone") for bias in currZoned.findall("bias")]
 			allClones = [clone.get("name") for clone in currZoned.findall("clone")]
+			category = "Games"
 		else:
 			allClones = [currZoned.get("name")]
 			allBiases = [clone.split(" (")[0] for clone in allClones]
 			allZones = []
+			category = currZoned.find("category").text
 			for clone in allClones:
 				bestZoneNum = 99
 				bestZone = ""
@@ -464,6 +470,15 @@ def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 					print("\nInvalid name. Skipping.")
 			if cloneExists:
 				addGameFileLocationToDict((mergeName, mergeRegionIndex), currCloneNameWithExt)
+				if isNoIntro:
+					categoryDict[mergeName] = "Games"
+				else:
+					oldVal = categoryValues[categoryDict[mergeName]]
+					newVal = categoryValues[category]
+					if categoryDict[mergeName] is None or oldVal is None:
+						categoryDict[mergeName] = category
+					else if newVal is not None:
+						categoryDict[mergeName] = categoryDict[mergeName] if oldVal < newVal else category
 				mergedClones.append(currCloneName)
 			else:
 				unmergedClones.append(currCloneName)
@@ -595,10 +610,22 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 		compilationStr = "[Compilation]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(comp) for comp in compilationArray])) else ""
 		classicNESStr = "[NES & Famicom]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(nes) for nes in classicNESArray])) else ""
 		gbaVideoStr = "[GBA Video]" if gameName.startswith("Game Boy Advance Video") else ""
+		demoStr = "[Demo]" if "Sample" in attributes or "Demo" in attributes else ""
+		redumpCategory = categoryDict[gameName]
+		if redumpCategory == "Games":
+			redumpCategory = ""
+		else:
+			if redumpCategory[-1] == "s":
+				redumpCategory = redumpCategory[:-1]
+			if redumpCategory in ["Unlicensed", "Unreleased", "Compilation", "NES & Famicom", "GBA Video", "Demo"]:
+				redumpCategory = ""
+			else:
+				redumpCategory = "["+redumpCategory+"]"
+		redumpCategory = 
 		if romsetCategory == "Full":
 			for rom in currGame:
 				oldFile = path.join(systemFolder, rom)
-				newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, unreleasedStr, gameName)
+				newDir = path.join(outputFolder, systemName, gameRegion, compilationStr, classicNESStr, gbaVideoStr, unlicensedStr, demoStr, redumpCategory, unreleasedStr, gameName)
 				newDirPathArray = getPathArray(newDir)
 				if arrayOverlap(ignoredAttributes, newDirPathArray):
 					continue
@@ -923,7 +950,7 @@ def getBestRom(clones):
 			currScore -= 50
 		if "Virtual Console" in attributes or "GameCube" in attributes or "Collection" in attributes:
 			currScore -= 10
-		if "Sample" in attributes or "Demo" in attributes:
+		if "Sample" in attributes or "Demo" in attributes or "Promo" in attributes:
 			currScore -= 90
 		cloneScores.append(currScore)
 	bestZones = numpy.where(zoneValues == numpy.min(zoneValues))[0].tolist()
