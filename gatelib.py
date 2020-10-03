@@ -27,8 +27,8 @@ from os import path, mkdir, listdir, rmdir
 	list (int)
 		An array of ints representing chosen answers.
 """
-def makeChoice(question, choices, allowMultiple=False):
-	numChoices = len(choices)
+def makeChoice(question, options, allowMultiple=False):
+	numChoices = len(options)
 	if numChoices == 0:
 		print("Warning: A question was asked with no valid answers. Returning None.")
 		return None
@@ -37,7 +37,7 @@ def makeChoice(question, choices, allowMultiple=False):
 		return 1
 	print("\n"+question)
 	for i in range(numChoices):
-		print(str(i+1)+": "+choices[i])
+		print(str(i+1)+": "+options[i])
 	cInput = input("\n").split(" ")
 	if not allowMultiple:
 		try:
@@ -46,8 +46,8 @@ def makeChoice(question, choices, allowMultiple=False):
 			assert choice > 0 and choice <= numChoices
 			return choice
 		except:
-			print("Invalid input.")
-			return makeChoice(question, choices, allowMultiple)
+			print("\nInvalid input.")
+			return makeChoice(question, options, allowMultiple)
 	else:
 		try:
 			choices = [int(c) for c in cInput]
@@ -55,8 +55,8 @@ def makeChoice(question, choices, allowMultiple=False):
 				assert choice > 0 and choice <= numChoices
 			return choices
 		except:
-			print("Invalid input.")
-			return makeChoice(question, choices, allowMultiple)
+			print("\nInvalid input.")
+			return makeChoice(question, options, allowMultiple)
 
 """
 	Asks the user a question. The answer can be any number between the given minVal and maxVal. If an invalid answer is given, the question is repeated.

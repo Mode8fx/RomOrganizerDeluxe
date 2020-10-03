@@ -27,7 +27,7 @@ except:
 	input("Press Enter to exit.")
 	sys.exit()
 
-from gatelib import makeChoice, arrayOverlap, getPathArray, createDir, removeEmptyFolders
+from gatelib import makeChoice, arrayOverlap, getPathArray, createDir, removeEmptyFolders, clearScreen
 
 # User settings
 if not path.isdir(profilesFolder):
@@ -162,7 +162,8 @@ skippedAttributes = [
 	"Rev", "Beta", "Virtual Console", "Proto", "Unl", "v", "Switch Online",
 	"GB Compatible", "SGB Enhanced", "Demo", "Disc", "Promo", "Sample", "DLC",
 	"WiiWare", "GameCube", "Promotion Card", "Namcot Collection",
-	"Namco Museum Archives", "Club Nintendo"
+	"Namco Museum Archives", "Club Nintendo", "Aftermarket", "Test Program",
+	"Competition Cart", "NES Test"
 ]
 
 # -------------- #
@@ -177,6 +178,7 @@ def main():
 	global systemFolder
 	global databaseFile
 	global isNoIntro
+	global skippedFoldersOnDevice
 
 	clearScreen()
 	print("\n########################")
@@ -370,6 +372,7 @@ def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 	unmergedClones = []
 	skipAll = not allowInterruptions
 	mergeDict = {}
+	categoryDict = {}
 	allFiles = [f for f in listdir(systemFolder) if path.isfile(path.join(systemFolder, f))]
 	tree = ET.parse(databaseFile)
 	root = tree.getroot()
@@ -473,11 +476,18 @@ def fixNamesAndGenerateMergeDict(allowInterruptions=True, verbose=False):
 				if isNoIntro:
 					categoryDict[mergeName] = "Games"
 				else:
-					oldVal = categoryValues[categoryDict[mergeName]]
+					try:
+						catDictVal = categoryDict[mergeName]
+					except:
+						catDictVal = None
+					try:
+						oldVal = categoryValues[catDictVal]
+					except:
+						oldVal = None
 					newVal = categoryValues[category]
-					if categoryDict[mergeName] is None or oldVal is None:
+					if catDictVal is None or oldVal is None:
 						categoryDict[mergeName] = category
-					else if newVal is not None:
+					elif newVal is not None:
 						categoryDict[mergeName] = categoryDict[mergeName] if oldVal < newVal else category
 				mergedClones.append(currCloneName)
 			else:
@@ -607,21 +617,18 @@ def copyRomset(romsetCategory, ignoredAttributes, primaryRegions):
 			gameRegion = ""
 		unlicensedStr = "[Unlicensed]" if "Unl" in attributes else ""
 		unreleasedStr = "[Unreleased]" if "Proto" in attributes else ""
-		compilationStr = "[Compilation]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(comp) for comp in compilationArray])) else ""
+		compilationStr = "[Compilations]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(comp) for comp in compilationArray])) else ""
 		classicNESStr = "[NES & Famicom]" if (systemName == "Nintendo - Game Boy Advance" and any([gameName.startswith(nes) for nes in classicNESArray])) else ""
 		gbaVideoStr = "[GBA Video]" if gameName.startswith("Game Boy Advance Video") else ""
-		demoStr = "[Demo]" if "Sample" in attributes or "Demo" in attributes else ""
+		demoStr = "[Demos]" if "Sample" in attributes or "Demo" in attributes else ""
 		redumpCategory = categoryDict[gameName]
 		if redumpCategory == "Games":
 			redumpCategory = ""
 		else:
-			if redumpCategory[-1] == "s":
-				redumpCategory = redumpCategory[:-1]
-			if redumpCategory in ["Unlicensed", "Unreleased", "Compilation", "NES & Famicom", "GBA Video", "Demo"]:
+			if redumpCategory in [unlicensedStr, unreleasedStr, compilationStr, classicNESStr, gbaVideoStr, demoStr]:
 				redumpCategory = ""
 			else:
 				redumpCategory = "["+redumpCategory+"]"
-		redumpCategory = 
 		if romsetCategory == "Full":
 			for rom in currGame:
 				oldFile = path.join(systemFolder, rom)
@@ -734,7 +741,7 @@ def updateOther():
 					failedOtherFiles.append(fileInOutput)
 	print("\nSuccessfully updated "+updateFolderName+" folder with "+str(len(newFilesInOther))+" new files.")
 	print("\nRemoving empty folders from "+updateFolderName+"...")
-	removeEmptyFolders(updateFromDeviceFolder, True)
+	removeEmptyFolders(updateFromDeviceFolder)
 	print("Done.")
 	if logFolder != "":
 		print("Generating New Files In "+updateFolderName+" log.")
