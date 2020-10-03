@@ -161,7 +161,7 @@ classicNESArray = ["Classic NES Series", "Famicom Mini", "Hudson Best Collection
 skippedAttributes = [
 	"Rev", "Beta", "Virtual Console", "Proto", "Unl", "v", "Switch Online",
 	"GB Compatible", "SGB Enhanced", "Demo", "Disc", "Promo", "Sample", "DLC",
-	"WiiWare", "GameCube", "Promotion Card", "Namcot Collection",
+	"WiiWare", "GameCube", "Minis", "Promotion Card", "Namcot Collection",
 	"Namco Museum Archives", "Club Nintendo", "Aftermarket", "Test Program",
 	"Competition Cart", "NES Test"
 ]
