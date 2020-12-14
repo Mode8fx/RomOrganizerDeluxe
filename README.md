@@ -1,4 +1,6 @@
 # Rom Organizer Deluxe
+
+**OUTDATED** - Use [Rom Organizer 3](https://github.com/GateGuy/RomOrganizer3) instead.
  
 This is a program that uses [No-Intro](https://datomatic.no-intro.org/) and/or [Redump](http://redump.org/) database files to create an organized copy of a local romset. The intent is to keep an unorganized rom collection on one drive, while using this program to create curated sets for each of your individual devices with minimal work required for upkeep. You can create a profile for each device indicating what should/shouldn't be copied so you don't have to remember your preferences every time. Running time is also low in upkeep since files that already exist on the target drive aren't re-copied.
 
